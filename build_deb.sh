@@ -104,7 +104,7 @@ Upstream-Name: yt-transcriber
 Upstream-Contact: Studio GD LEX <info@studiogdlex.it>
 
 Files: *
-Copyright: ${VERSION} Studio GD LEX
+Copyright: 2026 Studio GD LEX
 License: Proprietary
  This software is proprietary and confidential.
  All rights reserved. Studio GD LEX.

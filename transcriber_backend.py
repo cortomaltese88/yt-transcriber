@@ -330,8 +330,3 @@ if __name__ == "__main__":
 
     if backend['type'] == 'none':
         print("  ⚠  Nessun backend trovato.")
-        print("  Installo faster-whisper come fallback…")
-        install_faster_whisper()
-        print("  ✓  faster-whisper installato. Rilancio diagnostica…")
-        backend = detect_backend()
-        print(f"  Backend attivo: {backend['info']}")

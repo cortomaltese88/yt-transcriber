@@ -151,7 +151,7 @@ watch_progress() {
 check_deps() {
   step "Verifica dipendenze"
   local ok=1
-  for cmd in yt-dlp ffmpeg node python3 bc; do
+  for cmd in yt-dlp ffmpeg ffprobe node python3 bc; do
     if command -v "$cmd" &>/dev/null; then ok "$cmd"; else warn "$cmd non trovato"; ok=0; fi
   done
   if [[ ! -x "$WHISPER_BIN" ]]; then
@@ -332,9 +332,10 @@ main() {
   else
     # ── Python backend (faster-whisper / openai-whisper) ─────────────────────
     warn "whisper.cpp non trovato — uso backend Python (più lento)"
-    python3 - "$loud_audio" "$srt_file" "$LANG" << 'PYEOF'
+    PIPELINE_DIR_PY="$PIPELINE_DIR" python3 - "$loud_audio" "$srt_file" "$LANG" << 'PYEOF'
 import sys
-sys.path.insert(0, sys.argv[0].rsplit('/',1)[0])
+import os
+sys.path.insert(0, os.environ["PIPELINE_DIR_PY"])
 try:
     from transcriber_backend import transcribe, detect_backend
     backend = detect_backend()
