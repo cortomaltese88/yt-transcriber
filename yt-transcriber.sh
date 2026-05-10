@@ -24,7 +24,7 @@ PIPELINE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK_DIR="${WORK_DIR:-/tmp/yt-transcriber_work}"
 OUTPUT_DIR="${3:-$HOME/Trascrizioni}"
 LANG="${WHISPER_LANG:-it}"
-VOLUME_BOOST="${VOLUME_BOOST:-3.0}"
+VOLUME_BOOST="${VOLUME_BOOST:-1.0}"
 
 resolve_model_bin() {
   local model_input="${1:-}"
@@ -222,10 +222,14 @@ main() {
   fi
 
   # ── Step 2: Boost volume ───────────────────────────────────────────────────
-  step "Normalizzazione audio (volume boost ${VOLUME_BOOST}x)"
+  step "Normalizzazione audio"
   local loud_audio="$WORK_DIR/audio_loud.mp3"
-  ffmpeg -y -i "$raw_audio" -filter:a "volume=${VOLUME_BOOST}" \
-    "$loud_audio" -loglevel warning
+  if [[ "$VOLUME_BOOST" != "1.0" ]]; then
+    ffmpeg -y -i "$raw_audio" -filter:a "volume=${VOLUME_BOOST}" \
+      "$loud_audio" -loglevel warning
+  else
+    ffmpeg -y -i "$raw_audio" "$loud_audio" -loglevel warning
+  fi
   ok "Audio normalizzato"
 
   # Calcola durata in secondi per la barra progresso
