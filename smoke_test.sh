@@ -49,9 +49,9 @@ else
 fi
 
 if [[ $fail -eq 0 ]]; then
-  echo "\nTutti i controlli smoke sono OK."
+  printf "\nTutti i controlli smoke sono OK.\n"
   exit 0
 else
-  echo "\nUno o più controlli smoke hanno fallito."
+  printf "\nUno o più controlli smoke hanno fallito.\n"
   exit 1
 fi
