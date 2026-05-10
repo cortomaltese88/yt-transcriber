@@ -26,6 +26,34 @@ OUTPUT_DIR="${3:-$HOME/Trascrizioni}"
 LANG="${WHISPER_LANG:-it}"
 VOLUME_BOOST="${VOLUME_BOOST:-3.0}"
 
+resolve_model_bin() {
+  local model_input="${1:-}"
+  if [[ -z "$model_input" ]]; then
+    model_input="medium"
+  fi
+  if [[ "$model_input" == */* || "$model_input" == *.bin ]]; then
+    echo "$model_input"
+  else
+    echo "$HOME/whisper.cpp/models/ggml-${model_input}.bin"
+  fi
+}
+
+resolve_model_name() {
+  local model_input="${1:-}"
+  if [[ -z "$model_input" ]]; then
+    echo "medium"
+    return
+  fi
+  if [[ "$model_input" == */* || "$model_input" == *.bin ]]; then
+    local base
+    base="$(basename "$model_input")"
+    base="${base#ggml-}"
+    echo "${base%.bin}"
+  else
+    echo "$model_input"
+  fi
+}
+
 # ── Colori ────────────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 BLUE='\033[0;34m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
@@ -114,10 +142,17 @@ check_deps() {
   else
     ok "whisper-cli (Vulkan)"
   fi
-  local check_model="$HOME/whisper.cpp/models/ggml-${WHISPER_MODEL:-medium}.bin"
+  local model_input
+  model_input="${WHISPER_MODEL:-medium}"
+  local check_model
+  check_model="$(resolve_model_bin "$model_input")"
   if [[ ! -f "$check_model" ]]; then
-    warn "modello non trovato: $check_model"
-    ok=0
+    if [[ "$model_input" == */* || "$model_input" == *.bin ]]; then
+      warn "modello .bin esplicito non trovato: $check_model"
+      ok=0
+    else
+      warn "modello non trovato: $check_model (verrà scaricato automaticamente)"
+    fi
   else
     ok "modello $(basename $check_model)"
   fi
@@ -203,7 +238,10 @@ main() {
 
   # ── Step 3: Trascrizione Whisper ───────────────────────────────────────────
   local LANG="${WHISPER_LANG:-it}"
-  local MODEL_NAME="${WHISPER_MODEL:-medium}"
+  local MODEL_INPUT
+  MODEL_INPUT="${WHISPER_MODEL:-medium}"
+  local MODEL_NAME
+  MODEL_NAME="$(resolve_model_name "$MODEL_INPUT")"
   local WITH_TS="${WHISPER_TIMESTAMPS:-0}"
   local BURN_SUBS="${WHISPER_BURN_SUBS:-0}"
 
@@ -215,12 +253,19 @@ main() {
   local srt_file="${srt_base}.srt"
   local whisper_log="$WORK_DIR/whisper.log"
 
-  # Verifica che il modello richiesto esista, altrimenti scaricalo
-  local MODEL_BIN="$HOME/whisper.cpp/models/ggml-${MODEL_NAME}.bin"
-  if [[ ! -f "$MODEL_BIN" ]]; then
-    step "Download modello Whisper: ${MODEL_NAME}"
-    bash "$HOME/whisper.cpp/models/download-ggml-model.sh" "$MODEL_NAME" || \
-      err "Download modello ${MODEL_NAME} fallito"
+  # Verifica modello:
+  # - nome modello (es. medium): path standard + download automatico se assente
+  # - path .bin avanzato: deve esistere, nessun download automatico
+  local MODEL_BIN
+  MODEL_BIN="$(resolve_model_bin "$MODEL_INPUT")"
+  if [[ "$MODEL_INPUT" == */* || "$MODEL_INPUT" == *.bin ]]; then
+    [[ -f "$MODEL_BIN" ]] || err "WHISPER_MODEL punta a un file .bin inesistente: $MODEL_BIN"
+  else
+    if [[ ! -f "$MODEL_BIN" ]]; then
+      step "Download modello Whisper: ${MODEL_NAME}"
+      bash "$HOME/whisper.cpp/models/download-ggml-model.sh" "$MODEL_NAME" || \
+        err "Download modello ${MODEL_NAME} fallito"
+    fi
   fi
   WHISPER_MODEL="$MODEL_BIN"
 

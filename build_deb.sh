@@ -120,8 +120,8 @@ Version: ${VERSION}
 Architecture: ${ARCH}
 Maintainer: ${MAINTAINER}
 Installed-Size: ${INSTALLED_SIZE}
-Depends: python3 (>= 3.10), ffmpeg, nodejs (>= 16)
-Recommends: yt-dlp, python3-pip
+Depends: python3 (>= 3.10), python3-pyqt6, ffmpeg, nodejs (>= 16), yt-dlp, bc
+Recommends: python3-pip
 Suggests: pandoc, fpdf2
 Section: utils
 Priority: optional
