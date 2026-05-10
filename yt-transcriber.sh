@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# yt231 — Pipeline trascrizione video YouTube → .docx
+# yt-transcriber — Pipeline trascrizione video YouTube → .docx
 #
 # USAGE:
-#   yt231.sh <URL_YouTube> [titolo] [cartella_output]
+#   yt-transcriber.sh <URL_YouTube> [titolo] [cartella_output]
 #
 # DIPENDENZE:
 #   yt-dlp, ffmpeg, whisper.cpp (build-vulkan), node + docx, python3
@@ -61,7 +61,7 @@ BLUE='\033[0;34m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
 # ── Funzioni UI ───────────────────────────────────────────────────────────────
 banner() {
   echo -e "\n${BOLD}${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-  echo -e "${BOLD}${BLUE}  yt231 — Pipeline Trascrizione Video${NC}"
+  echo -e "${BOLD}${BLUE}  yt-transcriber — Pipeline Trascrizione Video${NC}"
   echo -e "${BOLD}${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
 }
 
