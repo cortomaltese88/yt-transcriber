@@ -14,6 +14,13 @@ SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "=== Build .deb ${PACKAGE} v${VERSION} ==="
 
+# Verifica dipendenze Node necessarie al runtime DOCX
+if [[ ! -d "$SOURCE_DIR/node_modules/docx" ]]; then
+    echo "ERRORE: dipendenza Node mancante: node_modules/docx"
+    echo "Esegui 'npm install' nella cartella del progetto prima di build_deb.sh"
+    exit 1
+fi
+
 # Pulizia
 rm -rf "$BUILD_DIR"
 
@@ -121,7 +128,6 @@ Architecture: ${ARCH}
 Maintainer: ${MAINTAINER}
 Installed-Size: ${INSTALLED_SIZE}
 Depends: python3 (>= 3.10), python3-pyqt6, ffmpeg, nodejs (>= 16), yt-dlp, bc
-Recommends: python3-pip
 Suggests: pandoc, fpdf2
 Section: utils
 Priority: optional
@@ -145,23 +151,6 @@ fi
 # Aggiorna database desktop
 if command -v update-desktop-database &>/dev/null; then
     update-desktop-database /usr/share/applications/ 2>/dev/null || true
-fi
-
-# Installa node_modules se necessario
-APP_DIR="/usr/lib/yt-transcriber"
-if [[ ! -d "$APP_DIR/node_modules" ]] && command -v npm &>/dev/null; then
-    cd "$APP_DIR" && npm install docx --save 2>/dev/null || true
-fi
-
-# Installa PyQt6 se non presente
-if ! python3 -c "import PyQt6" 2>/dev/null; then
-    pip3 install PyQt6 --break-system-packages -q 2>/dev/null || \
-    pip3 install PyQt6 -q 2>/dev/null || true
-fi
-
-# Installa faster-whisper come fallback se whisper.cpp non trovato
-if ! python3 -c "from transcriber_backend import detect_backend; b=detect_backend(); exit(0 if b['type']!='none' else 1)" 2>/dev/null; then
-    pip3 install faster-whisper --break-system-packages -q 2>/dev/null || true
 fi
 
 echo "yt-transcriber installato. Avvia con: yt-transcriber"
