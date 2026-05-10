@@ -70,6 +70,24 @@ ok()   { echo -e "${GREEN}  ✓ $1${NC}"; }
 warn() { echo -e "${YELLOW}  ⚠ $1${NC}"; }
 err()  { echo -e "${RED}  ✗ $1${NC}" >&2; exit 1; }
 
+show_help() {
+  cat << EOF
+yt-transcriber.sh — Pipeline trascrizione
+
+USO:
+  yt-transcriber.sh <URL_YouTube> [titolo] [output_dir]
+  yt-transcriber.sh --local <file_audio_video> [titolo] [output_dir]
+  yt-transcriber.sh --help
+
+VARIABILI D'AMBIENTE:
+  OUTPUT_DIR      Cartella output (default: ~/Trascrizioni)
+  VOLUME_BOOST    Amplificazione audio (default: 1.0, nessun boost)
+  WHISPER_LANG    Lingua Whisper (default: it)
+  WHISPER_BIN     Percorso whisper-cli
+  WHISPER_MODEL   Modello (small/medium/large-v3) o path .bin (default: medium)
+EOF
+}
+
 # ── Barra progresso whisper ───────────────────────────────────────────────────
 # whisper.cpp scrive righe tipo: [00:01:23 --> 00:01:27] testo
 # usiamo questo per calcolare percentuale ed ETA
@@ -163,6 +181,11 @@ check_deps() {
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 main() {
+  if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    show_help
+    exit 0
+  fi
+
   banner
 
   # ── Parsing argomenti ────────────────────────────────────────────────────

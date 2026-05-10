@@ -28,11 +28,11 @@ show_help() {
     yt-transcriber --help                   Mostra questo aiuto
 
   VARIABILI D'AMBIENTE:
-    OUTPUT_DIR      Cartella output  (default: ~/Documents/STUDIO/Trascrizioni)
-    VOLUME_BOOST    Amplificazione   (default: 3.0)
+    OUTPUT_DIR      Cartella output  (default: ~/Trascrizioni)
+    VOLUME_BOOST    Amplificazione   (default: 1.0)
     WHISPER_LANG    Lingua           (default: it)
     WHISPER_BIN     Percorso whisper-cli
-    WHISPER_MODEL   Percorso modello ggml
+    WHISPER_MODEL   Modello (small/medium/large-v3) o path .bin (default: medium)
 
   ESEMPI:
     yt-transcriber "https://www.youtube.com/watch?v=abc123"
