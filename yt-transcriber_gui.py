@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-yt-transcriber GUI v1.0.0
+yt-transcriber GUI v1.0.4
 Pipeline Trascrizione Audio/Video — Studio GD LEX
 """
 
@@ -19,9 +19,9 @@ from PyQt6.QtGui import (QFont, QTextCursor, QPalette, QColor,
                           QPixmap, QPainter, QPen, QBrush, QLinearGradient)
 
 # ── Versione ───────────────────────────────────────────────────────────────────
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.4"
 APP_AUTHOR  = "Studio GD LEX"
-APP_YEAR    = "2025"
+APP_YEAR    = "2026"
 
 # ── Backend detection ──────────────────────────────────────────────────────────
 sys.path.insert(0, str(Path(__file__).parent))
