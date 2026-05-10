@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=yt-transcriber
 Comment=Pipeline Trascrizione Video — Studio GD LEX
-Exec=/home/marco/bin/yt-transcriber
+Exec=yt-transcriber
 Icon=yt-transcriber
 Terminal=false
 Type=Application
