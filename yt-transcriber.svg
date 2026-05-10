@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#050A05"/>
+      <stop offset="100%" stop-color="#0A1A0A"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#00FF41" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#00C832" stop-opacity="0.7"/>
+    </linearGradient>
+    <filter id="bloom">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-soft">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="80" fill="url(#bg)"/>
+
+  <!-- Subtle grid -->
+  <g stroke="#003B00" stroke-width="0.5" opacity="0.4">
+    <line x1="0" y1="128" x2="512" y2="128"/>
+    <line x1="0" y1="256" x2="512" y2="256"/>
+    <line x1="0" y1="384" x2="512" y2="384"/>
+    <line x1="128" y1="0" x2="128" y2="512"/>
+    <line x1="256" y1="0" x2="256" y2="512"/>
+    <line x1="384" y1="0" x2="384" y2="512"/>
+  </g>
+
+  <!-- Rain columns — char drops -->
+  <g font-family="monospace" font-size="13" fill="#00FF41" opacity="0.12">
+    <text x="48"  y="60">1</text><text x="48"  y="78">0</text><text x="48"  y="96">1</text>
+    <text x="80"  y="40">0</text><text x="80"  y="58">1</text><text x="80"  y="76">1</text><text x="80"  y="94">0</text>
+    <text x="420" y="50">1</text><text x="420" y="68">0</text><text x="420" y="86">0</text>
+    <text x="450" y="70">1</text><text x="450" y="88">1</text><text x="450" y="106">0</text>
+    <text x="48"  y="430">0</text><text x="48"  y="448">1</text><text x="48"  y="466">1</text>
+    <text x="420" y="420">1</text><text x="420" y="438">0</text><text x="420" y="456">1</text><text x="420" y="474">0</text>
+  </g>
+
+  <!-- Bright rain drops (foreground) -->
+  <g font-family="monospace" font-size="14" fill="#00FF41" filter="url(#bloom)">
+    <text x="48"  y="112" opacity="0.9">0</text>
+    <text x="80"  y="112" opacity="0.6">1</text>
+    <text x="420" y="104" opacity="0.7">1</text>
+    <text x="450" y="124" opacity="0.9">0</text>
+    <text x="48"  y="484" opacity="0.5">0</text>
+    <text x="420" y="492" opacity="0.8">1</text>
+  </g>
+
+  <!-- Terminal bracket left -->
+  <g filter="url(#glow-soft)">
+    <path d="M 148 148 L 100 148 L 100 364 L 148 364"
+          fill="none" stroke="url(#glow)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Terminal bracket right -->
+  <g filter="url(#glow-soft)">
+    <path d="M 364 148 L 412 148 L 412 364 L 364 364"
+          fill="none" stroke="url(#glow)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Play triangle -->
+  <g filter="url(#glow-soft)">
+    <polygon points="200,188 200,324 340,256"
+             fill="#00FF41" opacity="0.15"/>
+    <polygon points="200,188 200,324 340,256"
+             fill="none" stroke="url(#glow)" stroke-width="5"
+             stroke-linejoin="round"/>
+  </g>
+
+  <!-- Waveform bars inside triangle area — subtle audio visualization -->
+  <g fill="#00C832" opacity="0.5" filter="url(#bloom)">
+    <rect x="218" y="238" width="6" height="36" rx="2"/>
+    <rect x="230" y="228" width="6" height="56" rx="2"/>
+    <rect x="242" y="244" width="6" height="24" rx="2"/>
+    <rect x="254" y="220" width="6" height="72" rx="2"/>
+    <rect x="266" y="234" width="6" height="44" rx="2"/>
+    <rect x="278" y="240" width="6" height="32" rx="2"/>
+    <rect x="290" y="226" width="6" height="60" rx="2"/>
+    <rect x="302" y="242" width="6" height="28" rx="2"/>
+  </g>
+
+  <!-- Scan line effect -->
+  <rect x="100" y="256" width="312" height="1.5" fill="#00FF41" opacity="0.06"/>
+  <rect x="100" y="192" width="312" height="1"   fill="#00FF41" opacity="0.04"/>
+  <rect x="100" y="320" width="312" height="1"   fill="#00FF41" opacity="0.04"/>
+
+  <!-- Outer border glow -->
+  <rect width="512" height="512" rx="80"
+        fill="none" stroke="#00FF41" stroke-width="2" opacity="0.15"/>
+  <rect x="4" y="4" width="504" height="504" rx="77"
+        fill="none" stroke="#00FF41" stroke-width="1" opacity="0.08"/>
+</svg>

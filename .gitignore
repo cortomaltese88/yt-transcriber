@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Node
+node_modules/
+
+# Pacchetti generati
+*.deb
+
+# Backup locali
+*_BACKUP_*/
+backup/
+Backup/
+
+# File temporanei
+*.tmp
+*.log
+.DS_Store
+
+# Claude Code locale
+.claude/
+CLAUDE.local.md
+.claude.json

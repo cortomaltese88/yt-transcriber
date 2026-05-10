@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# ─────────────────────────────────────────────────────────────────────────────
+# yt-transcriber — Wrapper unificato
+STUDIO_TOOLS="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+# USAGE:
+#   yt-transcriber                          → apre la GUI
+#   yt-transcriber <URL>                    → pipeline CLI con rilevamento titolo
+#   yt-transcriber <URL> "Titolo"           → pipeline CLI con titolo esplicito
+#   yt-transcriber <URL> "Titolo" /path/out → pipeline CLI con output personalizzato
+#   yt-transcriber --gui                    → forza GUI
+#   yt-transcriber --help                   → mostra questo aiuto
+# ─────────────────────────────────────────────────────────────────────────────
+
+STUDIO_TOOLS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+show_help() {
+  cat << 'EOF'
+
+  yt-transcriber — Pipeline Trascrizione Video  |  Studio GD LEX
+  ──────────────────────────────────────────────────────
+
+  USAGE:
+    yt-transcriber                          Apre la GUI
+    yt-transcriber <URL>                    CLI, titolo rilevato automaticamente
+    yt-transcriber <URL> "Titolo"           CLI, titolo esplicito
+    yt-transcriber <URL> "Titolo" /output   CLI, output personalizzato
+    yt-transcriber --gui                    Forza apertura GUI
+    yt-transcriber --help                   Mostra questo aiuto
+
+  VARIABILI D'AMBIENTE:
+    OUTPUT_DIR      Cartella output  (default: ~/Documents/STUDIO/Trascrizioni)
+    VOLUME_BOOST    Amplificazione   (default: 3.0)
+    WHISPER_LANG    Lingua           (default: it)
+    WHISPER_BIN     Percorso whisper-cli
+    WHISPER_MODEL   Percorso modello ggml
+
+  ESEMPI:
+    yt-transcriber "https://www.youtube.com/watch?v=abc123"
+    yt-transcriber "https://youtu.be/abc123" "Convegno penale 2026"
+    OUTPUT_DIR=~/Desktop yt-transcriber "https://..."
+
+EOF
+}
+
+case "${1:-}" in
+  --help|-h)
+    show_help
+    exit 0
+    ;;
+  --gui|"")
+    # Apri GUI
+    exec python3 "$STUDIO_TOOLS/yt-transcriber_gui.py"
+    ;;
+  http*)
+    # Pipeline CLI
+    exec bash "$STUDIO_TOOLS/yt-transcriber.sh" "$@"
+    ;;
+  *)
+    echo "Uso: yt-transcriber [URL] [titolo] [output] | --gui | --help"
+    exit 1
+    ;;
+esac
