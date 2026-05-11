@@ -167,6 +167,20 @@ fi
 POSTRM
 chmod 755 "$BUILD_DIR/DEBIAN/postrm"
 
+# ── Normalizzazione permessi ──────────────────────────────────────────────────
+find "$BUILD_DIR" -type d -exec chmod 755 {} +
+find "$BUILD_DIR" -type f -exec chmod go-w {} +
+
+chmod 755 "$BUILD_DIR/usr/bin/${PACKAGE}"
+chmod 755 "$BUILD_DIR/usr/lib/${PACKAGE}/yt-transcriber.sh"
+chmod 755 "$BUILD_DIR/DEBIAN/postinst" "$BUILD_DIR/DEBIAN/postrm" "$BUILD_DIR/DEBIAN/prerm"
+
+if [[ -d "$BUILD_DIR/usr/lib/${PACKAGE}/node_modules/.bin" ]]; then
+    find "$BUILD_DIR/usr/lib/${PACKAGE}/node_modules/.bin" -type f -exec chmod 755 {} +
+fi
+
+find "$BUILD_DIR/usr/lib/${PACKAGE}/node_modules" -type f \( -path '*/bin/*' -o -path '*/node_modules/.bin/*' \) -exec chmod 755 {} + 2>/dev/null || true
+
 # ── Build ─────────────────────────────────────────────────────────────────────
 OUTPUT_DEB="${SOURCE_DIR}/${PACKAGE}_${VERSION}_${ARCH}.deb"
 dpkg-deb --build --root-owner-group "$BUILD_DIR" "$OUTPUT_DEB"
