@@ -42,6 +42,47 @@ else
   ko "Presenza file: package.json"
 fi
 
+app_version=$(sed -n 's/^APP_VERSION = "\([^"]*\)"$/\1/p' yt-transcriber_gui.py)
+build_version=$(sed -n 's/^VERSION="\([^"]*\)"$/\1/p' build_deb.sh)
+package_version=$(sed -n 's/^[[:space:]]*"version": "\([^"]*\)",$/\1/p' package.json | head -n1)
+package_lock_version=$(sed -n 's/^[[:space:]]*"version": "\([^"]*\)",$/\1/p' package-lock.json | head -n1)
+
+if [[ -n "$app_version" ]]; then
+  ok "Lettura APP_VERSION: yt-transcriber_gui.py ($app_version)"
+else
+  ko "Lettura APP_VERSION: yt-transcriber_gui.py"
+fi
+
+if [[ -n "$app_version" && "$build_version" == "$app_version" ]]; then
+  ok "Versione coerente: build_deb.sh == APP_VERSION ($app_version)"
+else
+  ko "Versione coerente: build_deb.sh == APP_VERSION"
+fi
+
+if [[ -n "$app_version" && "$package_version" == "$app_version" ]]; then
+  ok "Versione coerente: package.json == APP_VERSION ($app_version)"
+else
+  ko "Versione coerente: package.json == APP_VERSION"
+fi
+
+if [[ -n "$app_version" && "$package_lock_version" == "$app_version" ]]; then
+  ok "Versione coerente: package-lock.json == APP_VERSION ($app_version)"
+else
+  ko "Versione coerente: package-lock.json == APP_VERSION"
+fi
+
+if grep -qx 'Exec=yt-transcriber' yt-transcriber.desktop; then
+  ok "Desktop entry: Exec=yt-transcriber"
+else
+  ko "Desktop entry: Exec=yt-transcriber"
+fi
+
+if grep -qx 'Icon=yt-transcriber' yt-transcriber.desktop; then
+  ok "Desktop entry: Icon=yt-transcriber"
+else
+  ko "Desktop entry: Icon=yt-transcriber"
+fi
+
 if [[ -d node_modules/docx ]]; then
   ok "Presenza directory: node_modules/docx"
 else

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 transcriber_backend.py — Rilevamento e gestione backend Whisper
-Studio GD LEX — yt-transcriber v1.0.4
+Studio GD LEX — yt-transcriber v1.0.5
 
 Ordine di preferenza:
   1. whisper.cpp Vulkan  (Linux/Windows, GPU AMD/Intel)
