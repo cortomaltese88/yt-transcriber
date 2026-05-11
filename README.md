@@ -1,7 +1,7 @@
 # yt-transcriber
 
 **Pipeline Trascrizione Audio/Video — Studio GD LEX**  
-Versione 1.0.5 · 2026 · Licenza: Proprietaria
+Versione 1.0.6 · 2026 · Licenza: Proprietaria
 
 ---
 
@@ -62,7 +62,7 @@ Per impostazione predefinita il comportamento resta conservativo: non viene appl
 Un pacchetto già pronto è incluso nella cartella del progetto:
 
 ```bash
-sudo dpkg -i yt-transcriber_1.0.5_amd64.deb
+sudo dpkg -i yt-transcriber_1.0.6_amd64.deb
 sudo apt-get install -f   # risolve eventuali dipendenze mancanti
 ```
 
@@ -168,7 +168,7 @@ studio-tools/
 │
 ├── build_deb.sh              # Costruisce il pacchetto .deb installabile
 │
-├── yt-transcriber_1.0.5_amd64.deb   # Pacchetto installabile già pronto
+├── yt-transcriber_1.0.6_amd64.deb   # Pacchetto installabile già pronto
 │
 ├── package.json              # Dipendenze Node.js (libreria docx)
 └── node_modules/             # Librerie Node.js (generate da npm install)
