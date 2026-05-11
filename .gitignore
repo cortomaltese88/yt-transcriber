@@ -24,3 +24,20 @@ Backup/
 .claude/
 CLAUDE.local.md
 .claude.json
+
+# Build locali
+build/
+dist/
+Release/
+
+# Ambiente Python locale
+.venv/
+venv/
+
+# Config/segreti locali
+.env
+*.env
+
+# Output locali
+Trascrizioni/
+output/
