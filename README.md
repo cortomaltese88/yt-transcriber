@@ -12,12 +12,14 @@ Versione 1.0.5 · 2026 · Licenza: Proprietaria
 Dato un URL di YouTube o un file sul proprio computer, il programma:
 
 1. scarica (o legge) l'audio;
-2. lo normalizza per migliorare la qualità della trascrizione;
+2. può normalizzarlo opzionalmente per migliorare la qualità della trascrizione;
 3. lo trascrive usando **Whisper** (motore AI di riconoscimento vocale);
 4. pulisce e formatta il testo risultante;
 5. salva la trascrizione nei formati scelti: Word (.docx), PDF, testo semplice (.txt), sottotitoli (.srt / .vtt).
 
 È pensato per uso interno a **Studio GD LEX** e ottimizzato per la lingua italiana.
+
+Per impostazione predefinita il comportamento resta conservativo: non viene applicata alcuna normalizzazione automatica e `VOLUME_BOOST=1.0` non aggiunge alcun filtro audio. Se serve, è possibile attivare opzionalmente `AUDIO_NORMALIZE=1` per usare `ffmpeg loudnorm` su audio troppo basso, troppo alto o irregolare. `VOLUME_BOOST` resta disponibile come opzione manuale e viene usato solo quando `AUDIO_NORMALIZE=0`.
 
 ---
 

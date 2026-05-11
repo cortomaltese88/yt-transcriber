@@ -25,6 +25,10 @@ WORK_DIR="${WORK_DIR:-/tmp/yt-transcriber_work}"
 OUTPUT_DIR="${3:-$HOME/Trascrizioni}"
 LANG="${WHISPER_LANG:-it}"
 VOLUME_BOOST="${VOLUME_BOOST:-1.0}"
+AUDIO_NORMALIZE="${AUDIO_NORMALIZE:-0}"
+LOUDNORM_I="${LOUDNORM_I:--20}"
+LOUDNORM_TP="${LOUDNORM_TP:--2}"
+LOUDNORM_LRA="${LOUDNORM_LRA:-11}"
 
 resolve_model_bin() {
   local model_input="${1:-}"
@@ -81,7 +85,11 @@ USO:
 
 VARIABILI D'AMBIENTE:
   OUTPUT_DIR      Cartella output (default: ~/Trascrizioni)
-  VOLUME_BOOST    Amplificazione audio (default: 1.0, nessun boost)
+  AUDIO_NORMALIZE Abilita loudnorm con ffmpeg se =1 (default: 0)
+  VOLUME_BOOST    Amplificazione manuale (default: 1.0, usata solo se AUDIO_NORMALIZE=0)
+  LOUDNORM_I      Parametro avanzato loudnorm (default: -20)
+  LOUDNORM_TP     Parametro avanzato loudnorm (default: -2)
+  LOUDNORM_LRA    Parametro avanzato loudnorm (default: 11)
   WHISPER_LANG    Lingua Whisper (default: it)
   WHISPER_BIN     Percorso whisper-cli
   WHISPER_MODEL   Modello (small/medium/large-v3) o path .bin (default: medium)
@@ -244,10 +252,14 @@ main() {
     ok "Audio scaricato: $(du -sh "$raw_audio" | cut -f1)"
   fi
 
-  # ── Step 2: Boost volume ───────────────────────────────────────────────────
+  # ── Step 2: Preparazione audio ─────────────────────────────────────────────
   step "Normalizzazione audio"
   local loud_audio="$WORK_DIR/audio_loud.mp3"
-  if [[ "$VOLUME_BOOST" != "1.0" ]]; then
+  if [[ "$AUDIO_NORMALIZE" == "1" ]]; then
+    ffmpeg -y -i "$raw_audio" \
+      -filter:a "loudnorm=I=${LOUDNORM_I}:TP=${LOUDNORM_TP}:LRA=${LOUDNORM_LRA}" \
+      "$loud_audio" -loglevel warning
+  elif [[ "$VOLUME_BOOST" != "1.0" ]]; then
     ffmpeg -y -i "$raw_audio" -filter:a "volume=${VOLUME_BOOST}" \
       "$loud_audio" -loglevel warning
   else
