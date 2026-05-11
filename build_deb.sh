@@ -83,19 +83,8 @@ if [[ -f "$SOURCE_DIR/yt-transcriber.svg" ]]; then
 fi
 
 # ── .desktop ──────────────────────────────────────────────────────────────────
-cat > "$BUILD_DIR/usr/share/applications/${PACKAGE}.desktop" << DESKTOP
-[Desktop Entry]
-Name=yt-transcriber
-GenericName=Trascrizione Audio/Video
-Comment=${DESCRIPTION}
-Exec=/usr/bin/yt-transcriber
-Icon=yt-transcriber
-Terminal=false
-Type=Application
-Categories=Qt;AudioVideo;Audio;Video;
-Keywords=trascrizione;youtube;whisper;video;audio;sottotitoli;
-StartupNotify=true
-DESKTOP
+install -m 644 "$SOURCE_DIR/yt-transcriber.desktop" \
+    "$BUILD_DIR/usr/share/applications/${PACKAGE}.desktop"
 
 # ── Copyright ─────────────────────────────────────────────────────────────────
 cat > "$BUILD_DIR/usr/share/doc/${PACKAGE}/copyright" << COPYRIGHT
