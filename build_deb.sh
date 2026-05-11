@@ -70,16 +70,16 @@ chmod +x "$BUILD_DIR/usr/bin/${PACKAGE}"
 
 # ── Icone ─────────────────────────────────────────────────────────────────────
 if [[ -f "$SOURCE_DIR/yt-transcriber.png" ]]; then
-    cp "$SOURCE_DIR/yt-transcriber.png" \
-       "$BUILD_DIR/usr/share/icons/hicolor/256x256/apps/${PACKAGE}.png"
+    install -m 644 "$SOURCE_DIR/yt-transcriber.png" \
+        "$BUILD_DIR/usr/share/icons/hicolor/256x256/apps/${PACKAGE}.png"
 fi
 if [[ -f "$SOURCE_DIR/yt-transcriber_512.png" ]]; then
-    cp "$SOURCE_DIR/yt-transcriber_512.png" \
-       "$BUILD_DIR/usr/share/icons/hicolor/512x512/apps/${PACKAGE}.png"
+    install -m 644 "$SOURCE_DIR/yt-transcriber_512.png" \
+        "$BUILD_DIR/usr/share/icons/hicolor/512x512/apps/${PACKAGE}.png"
 fi
 if [[ -f "$SOURCE_DIR/yt-transcriber.svg" ]]; then
-    cp "$SOURCE_DIR/yt-transcriber.svg" \
-       "$BUILD_DIR/usr/share/icons/hicolor/scalable/apps/${PACKAGE}.svg"
+    install -m 644 "$SOURCE_DIR/yt-transcriber.svg" \
+        "$BUILD_DIR/usr/share/icons/hicolor/scalable/apps/${PACKAGE}.svg"
 fi
 
 # ── .desktop ──────────────────────────────────────────────────────────────────
