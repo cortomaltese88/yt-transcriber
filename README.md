@@ -21,6 +21,8 @@ Dato un URL di YouTube o un file sul proprio computer, il programma:
 
 Per impostazione predefinita il comportamento resta conservativo: non viene applicata alcuna normalizzazione automatica e `VOLUME_BOOST=1.0` non aggiunge alcun filtro audio. Se serve, è possibile attivare opzionalmente `AUDIO_NORMALIZE=1` per usare `ffmpeg loudnorm` su audio troppo basso, troppo alto o irregolare. `VOLUME_BOOST` resta disponibile come opzione manuale e viene usato solo quando `AUDIO_NORMALIZE=0`.
 
+La normalizzazione audio è ora disponibile anche dalla GUI tramite toggle Matrix `Normalizza audio`, disattivato di default. Quando il toggle è attivo la GUI passa `AUDIO_NORMALIZE=1` alla pipeline; quando è disattivo passa `AUDIO_NORMALIZE=0`.
+
 ---
 
 ## 2. Requisiti
