@@ -1,6 +1,6 @@
 {
   "name": "studio-tools",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "",
   "main": "make_docx_styled.js",
   "scripts": {
