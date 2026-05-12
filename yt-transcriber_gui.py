@@ -108,7 +108,7 @@ class PipelineWorker(QThread):
 
     def __init__(self, url, title, output_dir,
                  lang="it", timestamps=False, burn_subs=False,
-                 formats=None, model="medium"):
+                 formats=None, model="medium", audio_normalize=False):
         super().__init__()
         self.url        = url
         self.title      = title
@@ -118,6 +118,7 @@ class PipelineWorker(QThread):
         self.burn_subs  = burn_subs
         self.formats    = formats or {"docx": True}
         self.model      = model
+        self.audio_normalize = audio_normalize
         self._cancelled = False
         self._proc      = None
 
@@ -132,6 +133,7 @@ class PipelineWorker(QThread):
         env["WHISPER_MODEL"]      = self.model
         env["WHISPER_TIMESTAMPS"] = "1" if self.timestamps else "0"
         env["WHISPER_BURN_SUBS"]  = "1" if self.burn_subs  else "0"
+        env["AUDIO_NORMALIZE"]    = "1" if self.audio_normalize else "0"
         env["OUT_DOCX"] = "1" if self.formats.get("docx") else "0"
         env["OUT_PDF"]  = "1" if self.formats.get("pdf")  else "0"
         env["OUT_TXT"]  = "1" if self.formats.get("txt")  else "0"
@@ -298,6 +300,7 @@ class MainWindow(QMainWindow):
         self._lang          = "it"
         self._timestamps    = False
         self._burn_subs     = False
+        self._audio_normalize = False
         self._formats       = {"docx":True,"pdf":False,"txt":False,"srt":True,"vtt":False}
         self._whisper_model = "medium"
         self._history       = load_history()
@@ -530,6 +533,13 @@ class MainWindow(QMainWindow):
         extra_row.addWidget(self.ts_btn); extra_row.addWidget(self.burn_btn)
         extra_row.addStretch()
         extra_col.addLayout(extra_row)
+        self.audio_normalize_btn = toggle_btn("Normalizza audio", checked=False)
+        self.audio_normalize_btn.setToolTip(
+            "Rende più uniforme il parlato in caso di audio basso, alto o irregolare. "
+            "Lasciare disattivato se l’audio è già buono."
+        )
+        self.audio_normalize_btn.toggled.connect(self._on_audio_normalize_toggled)
+        extra_col.addWidget(self.audio_normalize_btn)
         opt_row.addLayout(extra_col, 3)
         cov.addLayout(opt_row)
 
@@ -702,6 +712,9 @@ class MainWindow(QMainWindow):
             self._formats["docx"] = True
             self._fmt_btns["docx"].setChecked(True)
 
+    def _on_audio_normalize_toggled(self, checked):
+        self._audio_normalize = checked
+
     def _browse(self):
         d = QFileDialog.getExistingDirectory(self,"Output",str(DEFAULT_OUT))
         if d: self.out_input.setText(d)
@@ -824,7 +837,7 @@ class MainWindow(QMainWindow):
         self.worker = PipelineWorker(
             url, title, out,
             self._lang, self._timestamps, self._burn_subs,
-            dict(self._formats), self._whisper_model)
+            dict(self._formats), self._whisper_model, self._audio_normalize)
         self.worker.log_line.connect(self._on_log)
         self.worker.progress.connect(self._on_progress)
         self.worker.step_idx.connect(self._on_step)
