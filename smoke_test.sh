@@ -89,6 +89,20 @@ else
   ko "Presenza directory: node_modules/docx"
 fi
 
+run_check "Pipeline audio: AUDIO_NORMALIZE presente" grep -Fq 'AUDIO_NORMALIZE' yt-transcriber.sh
+run_check "Pipeline audio: loudnorm presente" grep -Fq 'loudnorm' yt-transcriber.sh
+run_check "Log audio: Preparazione audio" grep -Fq 'Preparazione audio' yt-transcriber.sh
+run_check "Log audio: Nessun filtro audio applicato" grep -Fq 'Nessun filtro audio applicato' yt-transcriber.sh
+run_check "Log audio: Normalizzazione loudnorm applicata" grep -Fq 'Normalizzazione loudnorm applicata' yt-transcriber.sh
+run_check "Log audio: Boost manuale applicato" grep -Fq 'Boost manuale applicato' yt-transcriber.sh
+
+run_check "GUI->env: AUDIO_NORMALIZE presente" grep -Fq 'env["AUDIO_NORMALIZE"]' yt-transcriber_gui.py
+run_check "GUI: toggle Normalizza audio presente" grep -Fq 'Normalizza audio' yt-transcriber_gui.py
+
+run_check "Standby: systemd-inhibit presente" grep -Fq 'systemd-inhibit' yt-transcriber.sh
+run_check "Standby: sentinella YT_TRANSCRIBER_INHIBIT_ACTIVE presente" grep -Fq 'YT_TRANSCRIBER_INHIBIT_ACTIVE' yt-transcriber.sh
+run_check "Standby: log Protezione standby attiva presente" grep -Fq 'Protezione standby attiva' yt-transcriber.sh
+
 if [[ $fail -eq 0 ]]; then
   printf "\nTutti i controlli smoke sono OK.\n"
   exit 0
