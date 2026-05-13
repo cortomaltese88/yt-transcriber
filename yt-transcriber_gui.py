@@ -4,7 +4,7 @@ yt-transcriber GUI v1.0.8
 Pipeline Trascrizione Audio/Video — Studio GD LEX
 """
 
-import sys, os, re, subprocess, json
+import sys, os, re, signal, subprocess, json
 from pathlib import Path
 from datetime import datetime
 
@@ -127,7 +127,14 @@ class PipelineWorker(QThread):
     def cancel(self):
         self._cancelled = True
         if self._proc:
-            self._proc.terminate()
+            try:
+                if self._proc.poll() is None:
+                    os.killpg(os.getpgid(self._proc.pid), signal.SIGTERM)
+            except Exception:
+                try:
+                    self._proc.terminate()
+                except Exception:
+                    pass
 
     def _extract_transcript_payload(self, line):
         if not line or not line.startswith("TRANSCRIPT_LIVE:"):
@@ -156,15 +163,17 @@ class PipelineWorker(QThread):
         STEPS = ["download audio", "preparazione audio", "normalizzazione audio",
                  "trascrizione con whisper", "pulitura testo",
                  "generazione file word", "lingua italiana"]
+        success = False
+        msg = "Pipeline interrotta."
         try:
             self._proc = subprocess.Popen(
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                text=True, bufsize=1, env=env)
+                text=True, bufsize=1, env=env, start_new_session=True)
 
             for line in self._proc.stdout:
-                if self._cancelled:
-                    self.finished.emit(False, "Annullato."); return
                 line = line.rstrip()
+                if self._cancelled:
+                    continue
                 if not line: continue
                 clean = re.sub(r"\x1b\[[0-9;]*m", "", line)
 
@@ -244,12 +253,17 @@ class PipelineWorker(QThread):
                             f"{sm.group(1)}×" if sm else "")
 
             self._proc.wait()
-            if self._proc.returncode == 0:
-                self.finished.emit(True, "Pipeline completata.")
+            if self._cancelled:
+                msg = "Annullato."
+            elif self._proc.returncode == 0:
+                success = True
+                msg = "Pipeline completata."
             else:
-                self.finished.emit(False, f"Errore (exit {self._proc.returncode}).")
+                msg = f"Errore (exit {self._proc.returncode})."
         except Exception as e:
-            self.finished.emit(False, str(e))
+            msg = str(e)
+        finally:
+            self.finished.emit(success, msg)
 
 
 # ── Componenti UI ─────────────────────────────────────────────────────────────
@@ -842,8 +856,8 @@ class MainWindow(QMainWindow):
 
     def _cancel(self):
         self._stop_pulse()
-        if self.worker: self.worker.cancel()
-        self.options_card.show()
+        if self.worker:
+            self.worker.cancel()
         self.cancel_btn.setEnabled(False)
         self._log("⚠  Annullamento richiesto…", GOLD)
 
@@ -874,6 +888,9 @@ class MainWindow(QMainWindow):
 
     # ── Pipeline ──────────────────────────────────────────────────────────────
     def _run(self):
+        if self.worker and self.worker.isRunning():
+            return
+
         title = self.title_input.text().strip()
         out   = Path(self.out_input.text().strip() or str(DEFAULT_OUT))
         out.mkdir(parents=True, exist_ok=True)
@@ -918,9 +935,6 @@ class MainWindow(QMainWindow):
                 pass
 
         self._log(f"{'─'*54}", "#00FFFF")
-
-        if self.worker and self.worker.isRunning():
-            return
 
         self.worker = PipelineWorker(
             url, title, out,
@@ -995,8 +1009,10 @@ class MainWindow(QMainWindow):
         self.options_card.show()
         self.cancel_btn.setEnabled(False)
         self.run_btn.setEnabled(True)
-        if self.worker:
-            self.worker.deleteLater()
+        finished_worker = self.worker
+        self.worker = None
+        if finished_worker:
+            finished_worker.deleteLater()
         if success:
             self.progress_bar.setValue(100)
             self.progress_bar.setFormat("  ✓  done")
@@ -1012,10 +1028,12 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self,"Done",
                 f"{msg}\n\nFile salvati in:\n{output_dir}")
         else:
-            self.progress_bar.setFormat("  ✗  error")
-            self.phase_lbl.setText(f"✗  {msg}")
-            self._log(f"✗  {msg}", RED)
-            QMessageBox.warning(self,"Error",msg)
+            is_cancelled = msg == "Annullato."
+            self.progress_bar.setFormat("  annullato" if is_cancelled else "  ✗  error")
+            self.phase_lbl.setText(f"⚠  {msg}" if is_cancelled else f"✗  {msg}")
+            self._log(f"⚠  {msg}" if is_cancelled else f"✗  {msg}", GOLD if is_cancelled else RED)
+            if not is_cancelled:
+                QMessageBox.warning(self,"Error",msg)
 
     # ── Cronologia ────────────────────────────────────────────────────────────
     def _refresh_history(self):
