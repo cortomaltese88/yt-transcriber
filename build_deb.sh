@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-VERSION="1.0.7"
+VERSION="1.0.8"
 PACKAGE="yt-transcriber"
 ARCH="amd64"
 MAINTAINER="Studio GD LEX <info@studiogdlex.it>"
