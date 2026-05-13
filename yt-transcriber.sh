@@ -257,6 +257,8 @@ main() {
     ok "File: $(du -sh "$raw_audio" | cut -f1)"
   else
     step "Download audio da YouTube"
+    local ytdlp_status=0
+    set +e
     yt-dlp -x --audio-format mp3 --audio-quality 0 \
       --newline \
       --progress-template "download:YTDLP_PROGRESS:%(progress._percent_str)s:%(progress._downloaded_bytes_str)s:%(progress._total_bytes_str)s:%(progress._speed_str)s:%(progress._eta_str)s" \
@@ -264,11 +266,14 @@ main() {
       --print-to-file title "$WORK_DIR/video_title.txt" \
       "$url" 2>&1 | while IFS= read -r line; do
         case "$line" in
-          YTDLP_PROGRESS:*|\[download\]*|\[ExtractAudio\]*)
+          YTDLP_PROGRESS:*|\[download\]*|\[ExtractAudio\]*|ERROR:*|WARNING:*|\[error\]*|\[warning\]*|*" ERROR:"*|*" WARNING:"*)
             printf '%s\n' "$line"
             ;;
         esac
-      done || true
+      done
+    ytdlp_status=${PIPESTATUS[0]}
+    set -e
+    [[ $ytdlp_status -eq 0 ]] || err "Download YouTube fallito (yt-dlp exit $ytdlp_status)"
 
     # Recupera titolo dal video se non fornito
     if [[ -z "$title" && -f "$WORK_DIR/video_title.txt" ]]; then
