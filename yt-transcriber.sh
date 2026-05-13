@@ -194,6 +194,30 @@ main() {
     exit 0
   fi
 
+  if [[ "${YT_TRANSCRIBER_INHIBIT_ACTIVE:-0}" != "1" ]]; then
+    if command -v systemd-inhibit &>/dev/null; then
+      if systemd-inhibit \
+        --what=sleep:idle \
+        --who="yt-transcriber" \
+        --why="yt-transcriber sta trascrivendo un audio/video" \
+        --mode=block \
+        true >/dev/null 2>&1; then
+        echo "▶ Protezione standby attiva: systemd-inhibit (sleep:idle)"
+        exec env YT_TRANSCRIBER_INHIBIT_ACTIVE=1 \
+          systemd-inhibit \
+            --what=sleep:idle \
+            --who="yt-transcriber" \
+            --why="yt-transcriber sta trascrivendo un audio/video" \
+            --mode=block \
+            bash "$0" "$@"
+      else
+        warn "Protezione standby non disponibile: systemd-inhibit presente ma non utilizzabile"
+      fi
+    else
+      warn "Protezione standby non disponibile: systemd-inhibit non trovato"
+    fi
+  fi
+
   banner
 
   # ── Parsing argomenti ────────────────────────────────────────────────────
