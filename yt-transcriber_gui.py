@@ -526,6 +526,7 @@ class MainWindow(QMainWindow):
 
         # ── OPZIONI ───────────────────────────────────────────────────────────
         co, cov = make_card("OPZIONI")
+        self.options_card = co
         opt_row = QHBoxLayout(); opt_row.setSpacing(12)
 
         # Lingua
@@ -799,6 +800,7 @@ class MainWindow(QMainWindow):
     def _cancel(self):
         self._stop_pulse()
         if self.worker: self.worker.cancel()
+        self.options_card.show()
         self.cancel_btn.setEnabled(False)
         self._log("⚠  Annullamento richiesto…", GOLD)
 
@@ -833,6 +835,7 @@ class MainWindow(QMainWindow):
         out   = Path(self.out_input.text().strip() or str(DEFAULT_OUT))
         out.mkdir(parents=True, exist_ok=True)
 
+        self.options_card.hide()
         self.run_btn.setEnabled(False); self.cancel_btn.setEnabled(True)
         self.claude_btn.setEnabled(False)
         self.progress_bar.setValue(0); self.progress_bar.setFormat("  init…")
@@ -927,6 +930,7 @@ class MainWindow(QMainWindow):
 
     def _on_finished(self, success, msg):
         self._stop_pulse()
+        self.options_card.show()
         self.cancel_btn.setEnabled(False)
         self.run_btn.setEnabled(True)
         if self.worker:
