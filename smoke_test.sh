@@ -102,6 +102,9 @@ run_check "GUI: toggle Normalizza audio presente" grep -Fq 'Normalizza audio' yt
 run_check "Standby: systemd-inhibit presente" grep -Fq 'systemd-inhibit' yt-transcriber.sh
 run_check "Standby: sentinella YT_TRANSCRIBER_INHIBIT_ACTIVE presente" grep -Fq 'YT_TRANSCRIBER_INHIBIT_ACTIVE' yt-transcriber.sh
 run_check "Standby: log Protezione standby attiva presente" grep -Fq 'Protezione standby attiva' yt-transcriber.sh
+run_check "Download YouTube: --newline presente" grep -Fq -- '--newline' yt-transcriber.sh
+run_check "Download YouTube: --progress-template presente" grep -Fq -- '--progress-template' yt-transcriber.sh
+run_check "Download YouTube: prefisso YTDLP_PROGRESS presente" grep -Fq 'YTDLP_PROGRESS' yt-transcriber.sh
 
 if [[ $fail -eq 0 ]]; then
   printf "\nTutti i controlli smoke sono OK.\n"
