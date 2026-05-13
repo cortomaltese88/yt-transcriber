@@ -121,6 +121,7 @@ class PipelineWorker(QThread):
         self.audio_normalize = audio_normalize
         self._cancelled = False
         self._proc      = None
+        self._last_ytdlp_bucket = -1
 
     def cancel(self):
         self._cancelled = True
@@ -146,7 +147,7 @@ class PipelineWorker(QThread):
         else:
             cmd = [str(SCRIPT_SH), self.url, self.title, str(self.output_dir)]
 
-        STEPS = ["download audio", "normalizzazione audio",
+        STEPS = ["download audio", "preparazione audio", "normalizzazione audio",
                  "trascrizione con whisper", "pulitura testo",
                  "generazione file word", "lingua italiana"]
         try:
@@ -160,6 +161,40 @@ class PipelineWorker(QThread):
                 line = line.rstrip()
                 if not line: continue
                 clean = re.sub(r"\x1b\[[0-9;]*m", "", line)
+
+                if clean.startswith("YTDLP_PROGRESS:"):
+                    parts = clean.split(":", 5)
+                    pct_raw = parts[1] if len(parts) > 1 else ""
+                    downloaded = parts[2] if len(parts) > 2 else ""
+                    total = parts[3] if len(parts) > 3 else ""
+                    speed = parts[4] if len(parts) > 4 else ""
+                    eta = parts[5] if len(parts) > 5 else ""
+
+                    def _norm_field(value, default="--"):
+                        value = value.strip()
+                        return default if not value or value == "NA" else value
+
+                    pct_clean = pct_raw.strip().replace("%", "")
+                    try:
+                        pct = int(float(pct_clean))
+                    except Exception:
+                        continue
+
+                    downloaded = _norm_field(downloaded)
+                    total = _norm_field(total)
+                    speed = _norm_field(speed)
+                    eta = _norm_field(eta, "--:--")
+
+                    self.progress.emit(pct, eta, "" if speed == "--" else speed)
+
+                    bucket = 10 if pct >= 100 else max(0, pct // 10)
+                    if bucket != self._last_ytdlp_bucket:
+                        self._last_ytdlp_bucket = bucket
+                        self.log_line.emit(
+                            f"→ Download YouTube: {pct}% - {downloaded} / {total} - {speed} - ETA {eta}",
+                            WHITE
+                        )
+                    continue
 
                 # Filtra righe barra ASCII
                 has_blocks = any(c in "█░▓▒" for c in clean)
@@ -308,6 +343,7 @@ class MainWindow(QMainWindow):
         self._pulse_timer.timeout.connect(self._pulse_progress)
         self._pulse_val     = 0
         self._pulse_dir     = 1
+        self._progress_mode = ""
 
         self.setWindowTitle(f"yt-transcriber v{APP_VERSION} — Studio GD LEX")
         self.setMinimumSize(1000, 860)
@@ -774,6 +810,10 @@ class MainWindow(QMainWindow):
         self.log_view.setTextCursor(cursor)
         safe = text.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
         self.log_view.insertHtml(f'<span style="color:{c};font-family:monospace;">{safe}</span><br>')
+        cursor = self.log_view.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        self.log_view.setTextCursor(cursor)
+        self.log_view.verticalScrollBar().setValue(self.log_view.verticalScrollBar().maximum())
         self.log_view.ensureCursorVisible()
 
     # ── Badges ────────────────────────────────────────────────────────────────
@@ -798,6 +838,7 @@ class MainWindow(QMainWindow):
         self.progress_bar.setValue(0); self.progress_bar.setFormat("  init…")
         self.phase_lbl.setText("init…"); self.spd_lbl.setText("")
         self.eta_lbl.setText("eta: --:--")
+        self._progress_mode = ""
         self._reset_badges()
 
         if self._mode == "youtube":
@@ -850,6 +891,7 @@ class MainWindow(QMainWindow):
         phases = {
             "download audio":           ("⬇  recupero audio…",           "pulse"),
             "file locale":              ("📁  file locale…",              "pulse"),
+            "preparazione audio":       ("🔊  prep. audio…",              "pulse"),
             "estrazione audio":         ("🎬  estrazione audio…",         "pulse"),
             "normalizzazione audio":    ("🔊  prep. audio…",              "pulse"),
             "trascrizione con whisper": ("⚙   whisper GPU transcribing…", "whisper"),
@@ -859,6 +901,7 @@ class MainWindow(QMainWindow):
         }
         for kw, (lbl, mode) in phases.items():
             if kw in cl:
+                self._progress_mode = "download" if kw == "download audio" else "whisper" if kw == "trascrizione con whisper" else mode
                 self.phase_lbl.setText(lbl)
                 if mode == "pulse":
                     self._stop_pulse()
@@ -872,9 +915,15 @@ class MainWindow(QMainWindow):
     def _on_progress(self, pct, eta, speed):
         self._stop_pulse()
         self.progress_bar.setValue(pct)
-        self.progress_bar.setFormat(f"  {pct}%")
+        if self._progress_mode == "download":
+            self.progress_bar.setFormat(f"  Download YouTube {pct}%")
+        else:
+            self.progress_bar.setFormat(f"  {pct}%")
         self.eta_lbl.setText(f"eta: {eta}")
-        if speed: self.spd_lbl.setText(f"⚡ {speed} realtime")
+        if speed:
+            self.spd_lbl.setText(f"⚡ {speed} realtime" if "×" in speed else f"⚡ {speed}")
+        else:
+            self.spd_lbl.setText("")
 
     def _on_finished(self, success, msg):
         self._stop_pulse()

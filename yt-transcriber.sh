@@ -262,7 +262,13 @@ main() {
       --progress-template "download:YTDLP_PROGRESS:%(progress._percent_str)s:%(progress._downloaded_bytes_str)s:%(progress._total_bytes_str)s:%(progress._speed_str)s:%(progress._eta_str)s" \
       --output "$WORK_DIR/audio_raw.%(ext)s" \
       --print-to-file title "$WORK_DIR/video_title.txt" \
-      "$url" 2>&1 | grep -E "^YTDLP_PROGRESS:|^\[download\]|^\[ExtractAudio\]" || true
+      "$url" 2>&1 | while IFS= read -r line; do
+        case "$line" in
+          YTDLP_PROGRESS:*|\[download\]*|\[ExtractAudio\]*)
+            printf '%s\n' "$line"
+            ;;
+        esac
+      done || true
 
     # Recupera titolo dal video se non fornito
     if [[ -z "$title" && -f "$WORK_DIR/video_title.txt" ]]; then
