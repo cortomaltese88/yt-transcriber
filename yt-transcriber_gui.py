@@ -102,6 +102,7 @@ def save_history(items):
 # ── Worker ────────────────────────────────────────────────────────────────────
 class PipelineWorker(QThread):
     log_line = pyqtSignal(str, str)
+    transcript_chunk = pyqtSignal(str)
     progress = pyqtSignal(int, str, str)
     step_idx = pyqtSignal(int)
     finished = pyqtSignal(bool, str)
@@ -127,6 +128,11 @@ class PipelineWorker(QThread):
         self._cancelled = True
         if self._proc:
             self._proc.terminate()
+
+    def _extract_transcript_payload(self, line):
+        if not line or not line.startswith("TRANSCRIPT_LIVE:"):
+            return None
+        return line.split(":", 1)[1].strip()
 
     def run(self):
         env = os.environ.copy()
@@ -161,6 +167,12 @@ class PipelineWorker(QThread):
                 line = line.rstrip()
                 if not line: continue
                 clean = re.sub(r"\x1b\[[0-9;]*m", "", line)
+
+                transcript_text = self._extract_transcript_payload(clean)
+                if transcript_text is not None:
+                    if transcript_text:
+                        self.transcript_chunk.emit(transcript_text)
+                    continue
 
                 if clean.startswith("YTDLP_PROGRESS:"):
                     parts = clean.split(":", 5)
@@ -344,6 +356,7 @@ class MainWindow(QMainWindow):
         self._pulse_val     = 0
         self._pulse_dir     = 1
         self._progress_mode = ""
+        self._last_transcript_chunk = ""
 
         self.setWindowTitle(f"yt-transcriber v{APP_VERSION} — Studio GD LEX")
         self.setMinimumSize(1000, 860)
@@ -618,6 +631,22 @@ class MainWindow(QMainWindow):
         cpv.addLayout(mr)
         body.addWidget(cp)
 
+        # ── TRASCRIZIONE LIVE ───────────────────────────────────────────────
+        ctl, ctlv = make_card("TRASCRIZIONE LIVE")
+        self.transcript_view = QTextEdit()
+        self.transcript_view.setReadOnly(True)
+        self.transcript_view.setMinimumHeight(160)
+        self.transcript_view.setPlaceholderText("Il testo riconosciuto comparirà qui durante la trascrizione.")
+        self.transcript_view.setFont(QFont(FONT_MONO, 12))
+        self.transcript_view.setStyleSheet(f"""
+            QTextEdit {{
+                background:#0A120A; color:{WHITE};
+                border:1px solid {GREEN_DARK}; border-radius:4px; padding:12px;
+            }}
+        """)
+        ctlv.addWidget(self.transcript_view)
+        body.addWidget(ctl)
+
         # ── LOG ───────────────────────────────────────────────────────────────
         cl2, clv = make_card("LOG")
         self.log_view = QTextEdit()
@@ -776,6 +805,10 @@ class MainWindow(QMainWindow):
 
     def _clear_log(self): self.log_view.clear()
 
+    def _clear_transcript(self):
+        self.transcript_view.clear()
+        self._last_transcript_chunk = ""
+
     def _open_output(self):
         p = self.out_input.text() or str(DEFAULT_OUT)
         os.makedirs(p, exist_ok=True)
@@ -853,6 +886,7 @@ class MainWindow(QMainWindow):
         self.eta_lbl.setText("eta: --:--")
         self._progress_mode = ""
         self._reset_badges()
+        self._clear_transcript()
 
         if self._mode == "youtube":
             url = self.url_input.text().strip()
@@ -893,6 +927,7 @@ class MainWindow(QMainWindow):
             self._lang, self._timestamps, self._burn_subs,
             dict(self._formats), self._whisper_model, self._audio_normalize)
         self.worker.log_line.connect(self._on_log)
+        self.worker.transcript_chunk.connect(self._on_transcript_chunk)
         self.worker.progress.connect(self._on_progress)
         self.worker.step_idx.connect(self._on_step)
         self.worker.finished.connect(self._on_finished)
@@ -937,6 +972,23 @@ class MainWindow(QMainWindow):
             self.spd_lbl.setText(f"⚡ {speed} realtime" if "×" in speed else f"⚡ {speed}")
         else:
             self.spd_lbl.setText("")
+
+    def _on_transcript_chunk(self, text):
+        chunk = text.strip()
+        if not chunk or chunk == self._last_transcript_chunk:
+            return
+        self._last_transcript_chunk = chunk
+        cursor = self.transcript_view.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        self.transcript_view.setTextCursor(cursor)
+        self.transcript_view.insertPlainText(chunk + "\n")
+        cursor = self.transcript_view.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        self.transcript_view.setTextCursor(cursor)
+        self.transcript_view.verticalScrollBar().setValue(
+            self.transcript_view.verticalScrollBar().maximum()
+        )
+        self.transcript_view.ensureCursorVisible()
 
     def _on_finished(self, success, msg):
         self._stop_pulse()

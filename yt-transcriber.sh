@@ -362,14 +362,37 @@ main() {
     local lang_arg=""
     [[ -n "$LANG" ]] && lang_arg="-l $LANG"
 
-    "$WHISPER_BIN_ACTIVE" \
-      -m "$MODEL_BIN" \
-      $lang_arg \
-      -f "$loud_audio" \
-      -osrt \
-      -of "$srt_base" \
-      --threads 8 \
-      > "$whisper_log" 2>&1 &
+    : > "$whisper_log"
+    (
+      if command -v stdbuf &>/dev/null; then
+        stdbuf -oL -eL \
+          "$WHISPER_BIN_ACTIVE" \
+          -m "$MODEL_BIN" \
+          $lang_arg \
+          -f "$loud_audio" \
+          -osrt \
+          -of "$srt_base" \
+          --threads 8
+      else
+        "$WHISPER_BIN_ACTIVE" \
+          -m "$MODEL_BIN" \
+          $lang_arg \
+          -f "$loud_audio" \
+          -osrt \
+          -of "$srt_base" \
+          --threads 8
+      fi
+    ) 2>&1 | tee "$whisper_log" | while IFS= read -r line; do
+      [[ -z "$line" ]] && continue
+      if [[ "$line" =~ ^\[[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{3})?[[:space:]]+--\>[[:space:]]+[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{3})?\][[:space:]]+(.+)$ ]]; then
+        transcript_text="${BASH_REMATCH[3]}"
+        transcript_text="${transcript_text#"${transcript_text%%[![:space:]]*}"}"
+        transcript_text="${transcript_text%"${transcript_text##*[![:space:]]}"}"
+        [[ -z "$transcript_text" ]] && continue
+        [[ "$transcript_text" =~ ^\[[^]]+\]$ ]] && continue
+        printf 'TRANSCRIPT_LIVE:%s\n' "$transcript_text"
+      fi
+    done &
     WHISPER_PID=$!
     watch_progress "$whisper_log" "$total_sec"
     wait $WHISPER_PID

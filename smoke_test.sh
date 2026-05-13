@@ -103,6 +103,10 @@ run_check "GUI download: split(\":\", 5) presente" grep -Fq 'split(":", 5)' yt-t
 run_check "GUI download: _last_ytdlp_bucket presente" grep -Fq '_last_ytdlp_bucket' yt-transcriber_gui.py
 run_check "GUI download: log Download YouTube presente" grep -Fq 'Download YouTube:' yt-transcriber_gui.py
 run_check "GUI fasi: preparazione audio presente" grep -Fq 'preparazione audio' yt-transcriber_gui.py
+run_check "Live transcript: TRANSCRIPT_LIVE presente in pipeline" grep -Fq 'TRANSCRIPT_LIVE' yt-transcriber.sh
+run_check "Live transcript: TRANSCRIPT_LIVE presente in GUI" grep -Fq 'TRANSCRIPT_LIVE' yt-transcriber_gui.py
+run_check "Live transcript: transcript_chunk presente in GUI" grep -Fq 'transcript_chunk' yt-transcriber_gui.py
+run_check "Live transcript: card TRASCRIZIONE LIVE presente in GUI" grep -Fq 'TRASCRIZIONE LIVE' yt-transcriber_gui.py
 
 run_check "Standby: systemd-inhibit presente" grep -Fq 'systemd-inhibit' yt-transcriber.sh
 run_check "Standby: sentinella YT_TRANSCRIBER_INHIBIT_ACTIVE presente" grep -Fq 'YT_TRANSCRIBER_INHIBIT_ACTIVE' yt-transcriber.sh
