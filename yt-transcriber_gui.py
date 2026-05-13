@@ -942,12 +942,13 @@ class MainWindow(QMainWindow):
             for b in self.badges: b.set_state(StepBadge.DONE)
             self._log(f"✓  {msg}", GREEN)
             self.claude_btn.setEnabled(True)
+            output_dir = str(Path(self.out_input.text().strip() or str(DEFAULT_OUT)).expanduser())
             # Cronologia
             url = self.url_input.text().strip() if self._mode == "youtube" else f"LOCAL:{self._local_file}"
             title = self.title_input.text().strip() or "Senza titolo"
-            self._add_to_history(url, title, self.out_input.text())
+            self._add_to_history(url, title, output_dir)
             QMessageBox.information(self,"Done",
-                f"{msg}\n\nFile salvati in:\n{self.out_input.text()}")
+                f"{msg}\n\nFile salvati in:\n{output_dir}")
         else:
             self.progress_bar.setFormat("  ✗  error")
             self.phase_lbl.setText(f"✗  {msg}")
