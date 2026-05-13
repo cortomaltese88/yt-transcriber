@@ -277,19 +277,21 @@ main() {
   fi
 
   # ── Step 2: Preparazione audio ─────────────────────────────────────────────
-  step "Normalizzazione audio"
+  step "Preparazione audio"
   local loud_audio="$WORK_DIR/audio_loud.mp3"
   if [[ "$AUDIO_NORMALIZE" == "1" ]]; then
     ffmpeg -y -i "$raw_audio" \
       -filter:a "loudnorm=I=${LOUDNORM_I}:TP=${LOUDNORM_TP}:LRA=${LOUDNORM_LRA}" \
       "$loud_audio" -loglevel warning
+    ok "Normalizzazione loudnorm applicata"
   elif [[ "$VOLUME_BOOST" != "1.0" ]]; then
     ffmpeg -y -i "$raw_audio" -filter:a "volume=${VOLUME_BOOST}" \
       "$loud_audio" -loglevel warning
+    ok "Boost manuale applicato: volume=${VOLUME_BOOST}"
   else
     ffmpeg -y -i "$raw_audio" "$loud_audio" -loglevel warning
+    ok "Nessun filtro audio applicato"
   fi
-  ok "Audio normalizzato"
 
   # Calcola durata in secondi per la barra progresso
   local total_sec
