@@ -470,6 +470,7 @@ class MainWindow(QMainWindow):
         yt_l.addWidget(QLabel("URL YOUTUBE", styleSheet=f"color:{MUTED};font-family:{FONT_MONO};font-size:11px;letter-spacing:1px;background:transparent;"))
         self.url_input = MatrixInput("https://www.youtube.com/watch?v=...   oppure   /live/...")
         self.url_input.textChanged.connect(self._on_url_changed)
+        self.url_input.returnPressed.connect(self._run_if_ready)
         yt_l.addWidget(self.url_input)
 
         # Tab File locale
@@ -480,6 +481,7 @@ class MainWindow(QMainWindow):
         self.file_input = MatrixInput("Seleziona un file audio o video…")
         self.file_input.setReadOnly(True)
         self.file_input.textChanged.connect(self._on_file_changed)
+        self.file_input.returnPressed.connect(self._run_if_ready)
         file_btn = QPushButton("sfoglia…"); file_btn.setObjectName("secondary")
         file_btn.setFixedWidth(88); file_btn.clicked.connect(self._browse_audio)
         file_row.addWidget(self.file_input); file_row.addWidget(file_btn)
@@ -499,11 +501,13 @@ class MainWindow(QMainWindow):
         col_t = QVBoxLayout(); col_t.setSpacing(4)
         col_t.addWidget(QLabel("TITOLO  (opzionale)", styleSheet=f"color:{MUTED};font-family:{FONT_MONO};font-size:11px;letter-spacing:1px;background:transparent;"))
         self.title_input = MatrixInput("Rilevato automaticamente")
+        self.title_input.returnPressed.connect(self._run_if_ready)
         col_t.addWidget(self.title_input)
         col_o = QVBoxLayout(); col_o.setSpacing(4)
         col_o.addWidget(QLabel("CARTELLA OUTPUT", styleSheet=f"color:{MUTED};font-family:{FONT_MONO};font-size:11px;letter-spacing:1px;background:transparent;"))
         out_row = QHBoxLayout(); out_row.setSpacing(8)
         self.out_input = MatrixInput(str(DEFAULT_OUT))
+        self.out_input.returnPressed.connect(self._run_if_ready)
         browse_btn = QPushButton("browse…"); browse_btn.setObjectName("secondary")
         browse_btn.setFixedWidth(88); browse_btn.clicked.connect(self._browse)
         out_row.addWidget(self.out_input); out_row.addWidget(browse_btn)
@@ -751,6 +755,12 @@ class MainWindow(QMainWindow):
 
     def _on_audio_normalize_toggled(self, checked):
         self._audio_normalize = checked
+
+    def _run_if_ready(self):
+        if self.worker and self.worker.isRunning():
+            return
+        if self.run_btn.isEnabled():
+            self._run()
 
     def _browse(self):
         d = QFileDialog.getExistingDirectory(self,"Output",str(DEFAULT_OUT))
