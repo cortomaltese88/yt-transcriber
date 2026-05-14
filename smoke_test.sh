@@ -98,6 +98,8 @@ run_check "Log audio: Boost manuale applicato" grep -Fq 'Boost manuale applicato
 
 run_check "GUI->env: AUDIO_NORMALIZE presente" grep -Fq 'env["AUDIO_NORMALIZE"]' yt-transcriber_gui.py
 run_check "GUI: toggle Normalizza audio presente" grep -Fq 'Normalizza audio' yt-transcriber_gui.py
+run_check "GUI file locale: campo editabile/incollabile" grep -Fq 'self.file_input = MatrixInput("Seleziona un file audio o video…")' yt-transcriber_gui.py
+run_check "GUI file locale: validazione is_file presente" grep -Fq 'path.is_file()' yt-transcriber_gui.py
 run_check "GUI download: YTDLP_PROGRESS presente" grep -Fq 'YTDLP_PROGRESS' yt-transcriber_gui.py
 run_check "GUI download: split(\":\", 5) presente" grep -Fq 'split(":", 5)' yt-transcriber_gui.py
 run_check "GUI download: _last_ytdlp_bucket presente" grep -Fq '_last_ytdlp_bucket' yt-transcriber_gui.py

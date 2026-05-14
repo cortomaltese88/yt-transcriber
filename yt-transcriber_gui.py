@@ -506,7 +506,6 @@ class MainWindow(QMainWindow):
         loc_l.addWidget(QLabel("FILE AUDIO / VIDEO", styleSheet=f"color:{MUTED};font-family:{FONT_MONO};font-size:11px;letter-spacing:1px;background:transparent;"))
         file_row = QHBoxLayout(); file_row.setSpacing(8)
         self.file_input = MatrixInput("Seleziona un file audio o video…")
-        self.file_input.setReadOnly(True)
         self.file_input.textChanged.connect(self._on_file_changed)
         self.file_input.returnPressed.connect(self._run_if_ready)
         file_btn = QPushButton("sfoglia…"); file_btn.setObjectName("secondary")
@@ -762,17 +761,37 @@ class MainWindow(QMainWindow):
             self._log(f"⚠  Dipendenze mancanti: {', '.join(missing)}", GOLD)
 
     # ── Slot UI ───────────────────────────────────────────────────────────────
+    def _set_input_validity(self, widget, is_valid, has_text):
+        if has_text and not is_valid:
+            style = widget.styleSheet()
+            style = style.replace(f"border: 1.5px solid {GREEN_MID}", f"border: 1.5px solid {RED}")
+            style = style.replace(f"border: 1.5px solid {GREEN}", f"border: 1.5px solid {RED}")
+            widget.setStyleSheet(style)
+        else:
+            widget._apply_style(widget.hasFocus())
+
+    def _resolve_local_file(self, value):
+        candidate = value.strip()
+        if not candidate:
+            return ""
+        if len(candidate) >= 2 and candidate[0] == candidate[-1] and candidate[0] in {"'", '"'}:
+            candidate = candidate[1:-1]
+            if not candidate:
+                return ""
+        try:
+            path = Path(candidate).expanduser()
+        except Exception:
+            return ""
+        return str(path) if path.is_file() else ""
+
     def _on_url_changed(self, t):
         ok = bool(t.strip()) and ("youtube.com" in t or "youtu.be" in t)
-        self.run_btn.setEnabled(ok)
-        if t and not ok:
-            self.url_input.setStyleSheet(self.url_input.styleSheet().replace(
-                f"border: 1.5px solid {GREEN_MID}", f"border: 1.5px solid {RED}"))
-        else:
-            self.url_input._apply_style(False)
+        self._set_input_validity(self.url_input, ok, bool(t.strip()))
+        self._update_run_btn()
 
     def _on_file_changed(self, t):
-        self._local_file = t
+        self._local_file = self._resolve_local_file(t)
+        self._set_input_validity(self.file_input, bool(self._local_file), bool(t.strip()))
         self._update_run_btn()
 
     def _on_tab_changed(self, idx):
@@ -783,11 +802,14 @@ class MainWindow(QMainWindow):
         self._update_run_btn()
 
     def _update_run_btn(self):
+        if self.worker and self.worker.isRunning():
+            self.run_btn.setEnabled(False)
+            return
         if self._mode == "youtube":
             t = self.url_input.text().strip()
             ok = bool(t) and ("youtube.com" in t or "youtu.be" in t)
         else:
-            ok = bool(self._local_file) and Path(self._local_file).exists()
+            ok = bool(self._local_file)
         self.run_btn.setEnabled(ok)
 
     def _on_fmt_changed(self, fmt, v):
@@ -812,7 +834,6 @@ class MainWindow(QMainWindow):
     def _browse_audio(self):
         f, _ = QFileDialog.getOpenFileName(self,"File audio/video",str(Path.home()),AUDIO_FORMATS)
         if f:
-            self._local_file = f
             self.file_input.setText(f)
             if not self.title_input.text().strip():
                 self.title_input.setText(Path(f).stem)
@@ -889,6 +910,11 @@ class MainWindow(QMainWindow):
     # ── Pipeline ──────────────────────────────────────────────────────────────
     def _run(self):
         if self.worker and self.worker.isRunning():
+            return
+
+        if self._mode == "local" and not self._local_file:
+            self._log("✗  Percorso file locale non valido.", RED)
+            self._update_run_btn()
             return
 
         title = self.title_input.text().strip()
@@ -1008,9 +1034,9 @@ class MainWindow(QMainWindow):
         self._stop_pulse()
         self.options_card.show()
         self.cancel_btn.setEnabled(False)
-        self.run_btn.setEnabled(True)
         finished_worker = self.worker
         self.worker = None
+        self._update_run_btn()
         if finished_worker:
             finished_worker.deleteLater()
         if success:
@@ -1053,7 +1079,6 @@ class MainWindow(QMainWindow):
         if url.startswith("LOCAL:"):
             fpath = url[6:]
             self.tab_widget.setCurrentIndex(1)
-            self._local_file = fpath
             self.file_input.setText(fpath)
         else:
             self.tab_widget.setCurrentIndex(0)
@@ -1125,7 +1150,6 @@ class MainWindow(QMainWindow):
             self._log("→  URL ricevuto via drag & drop", GREEN_DIM)
         else:
             self.tab_widget.setCurrentIndex(1)
-            self._local_file = p
             self.file_input.setText(p)
             if not self.title_input.text().strip():
                 self.title_input.setText(Path(p).stem)
