@@ -141,6 +141,11 @@ class PipelineWorker(QThread):
             return None
         return line.split(":", 1)[1].strip()
 
+    def _extract_audio_prep_status(self, line):
+        if not line or not line.startswith("AUDIO_PREP_STATUS:"):
+            return None
+        return line.split(":", 1)[1].strip()
+
     def run(self):
         env = os.environ.copy()
         env["WHISPER_LANG"]       = self.lang if self.lang != "auto" else ""
@@ -181,6 +186,12 @@ class PipelineWorker(QThread):
                 if transcript_text is not None:
                     if transcript_text:
                         self.transcript_chunk.emit(transcript_text)
+                    continue
+
+                audio_prep_status = self._extract_audio_prep_status(clean)
+                if audio_prep_status is not None:
+                    if audio_prep_status:
+                        self.log_line.emit(f"→ {audio_prep_status}", WHITE)
                     continue
 
                 if clean.startswith("YTDLP_PROGRESS:"):
@@ -980,8 +991,14 @@ class MainWindow(QMainWindow):
             "download audio":           ("⬇  recupero audio…",           "pulse"),
             "file locale":              ("📁  file locale…",              "pulse"),
             "preparazione audio":       ("🔊  prep. audio…",              "pulse"),
+            "analisi file audio":       ("🔊  analisi audio...",          "pulse"),
+            "conversione audio in corso": ("🔊  conversione audio...",    "pulse"),
+            "boost audio in corso":     ("🔊  boost audio...",            "pulse"),
             "estrazione audio":         ("🎬  estrazione audio…",         "pulse"),
+            "normalizzazione audio in corso": ("🔊  normalizzazione audio...", "pulse"),
             "normalizzazione audio":    ("🔊  prep. audio…",              "pulse"),
+            "verifica audio preparato": ("🔊  verifica audio...",         "pulse"),
+            "preparazione audio completata": ("✓ audio pronto",            "status"),
             "trascrizione con whisper": ("⚙   whisper GPU transcribing…", "whisper"),
             "pulitura testo":           ("🧹  cleaning text…",            "pulse"),
             "generazione file word":    ("📄  generating .docx…",         "pulse"),

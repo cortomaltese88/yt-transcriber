@@ -91,12 +91,17 @@ fi
 
 run_check "Pipeline audio: AUDIO_NORMALIZE presente" grep -Fq 'AUDIO_NORMALIZE' yt-transcriber.sh
 run_check "Pipeline audio: loudnorm presente" grep -Fq 'loudnorm' yt-transcriber.sh
+run_check "Pipeline audio: AUDIO_PREP_STATUS presente" grep -Fq 'AUDIO_PREP_STATUS' yt-transcriber.sh
 run_check "Log audio: Preparazione audio" grep -Fq 'Preparazione audio' yt-transcriber.sh
+run_check "Log audio: Analisi file audio" grep -Fq 'Analisi file audio' yt-transcriber.sh
 run_check "Log audio: Nessun filtro audio applicato" grep -Fq 'Nessun filtro audio applicato' yt-transcriber.sh
+run_check "Log audio: stato audio intermedio presente" grep -Eq 'Normalizzazione audio in corso|Conversione audio in corso|Boost audio in corso' yt-transcriber.sh
+run_check "Log audio: Preparazione audio completata" grep -Fq 'Preparazione audio completata' yt-transcriber.sh
 run_check "Log audio: Normalizzazione loudnorm applicata" grep -Fq 'Normalizzazione loudnorm applicata' yt-transcriber.sh
 run_check "Log audio: Boost manuale applicato" grep -Fq 'Boost manuale applicato' yt-transcriber.sh
 
 run_check "GUI->env: AUDIO_NORMALIZE presente" grep -Fq 'env["AUDIO_NORMALIZE"]' yt-transcriber_gui.py
+run_check "GUI: AUDIO_PREP_STATUS presente" grep -Fq 'AUDIO_PREP_STATUS' yt-transcriber_gui.py
 run_check "GUI: toggle Normalizza audio presente" grep -Fq 'Normalizza audio' yt-transcriber_gui.py
 run_check "GUI file locale: campo editabile/incollabile" grep -Fq 'self.file_input = MatrixInput("Seleziona un file audio o video…")' yt-transcriber_gui.py
 run_check "GUI file locale: validazione is_file presente" grep -Fq 'path.is_file()' yt-transcriber_gui.py

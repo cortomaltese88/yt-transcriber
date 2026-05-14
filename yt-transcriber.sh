@@ -291,28 +291,34 @@ main() {
 
   # ── Step 2: Preparazione audio ─────────────────────────────────────────────
   step "Preparazione audio"
+  printf 'AUDIO_PREP_STATUS:%s\n' "Analisi file audio..."
   local loud_audio="$WORK_DIR/audio_loud.mp3"
   if [[ "$AUDIO_NORMALIZE" == "1" ]]; then
+    printf 'AUDIO_PREP_STATUS:%s\n' "Normalizzazione audio in corso..."
     ffmpeg -y -i "$raw_audio" \
       -filter:a "loudnorm=I=${LOUDNORM_I}:TP=${LOUDNORM_TP}:LRA=${LOUDNORM_LRA}" \
       "$loud_audio" -loglevel warning
     ok "Normalizzazione loudnorm applicata"
   elif [[ "$VOLUME_BOOST" != "1.0" ]]; then
+    printf 'AUDIO_PREP_STATUS:%s\n' "Boost audio in corso..."
     ffmpeg -y -i "$raw_audio" -filter:a "volume=${VOLUME_BOOST}" \
       "$loud_audio" -loglevel warning
     ok "Boost manuale applicato: volume=${VOLUME_BOOST}"
   else
+    printf 'AUDIO_PREP_STATUS:%s\n' "Conversione audio in corso..."
     ffmpeg -y -i "$raw_audio" "$loud_audio" -loglevel warning
     ok "Nessun filtro audio applicato"
   fi
 
   # Calcola durata in secondi per la barra progresso
+  printf 'AUDIO_PREP_STATUS:%s\n' "Verifica audio preparato..."
   local total_sec
   total_sec=$(ffprobe -v error -show_entries format=duration \
     -of default=noprint_wrappers=1:nokey=1 "$loud_audio" 2>/dev/null | cut -d. -f1)
   local total_min=$(( total_sec / 60 ))
   local total_s=$(( total_sec % 60 ))
   ok "Durata audio: ${total_min}m${total_s}s"
+  printf 'AUDIO_PREP_STATUS:%s\n' "Preparazione audio completata"
 
   # ── Step 3: Trascrizione Whisper ───────────────────────────────────────────
   local LANG="${WHISPER_LANG:-it}"
