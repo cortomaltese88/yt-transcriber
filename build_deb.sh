@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-VERSION="1.0.8"
+VERSION="1.0.9"
 PACKAGE="yt-transcriber"
 ARCH="amd64"
 MAINTAINER="Studio GD LEX <info@studiogdlex.it>"
@@ -121,7 +121,7 @@ Suggests: pandoc, fpdf2
 Section: utils
 Priority: optional
 Description: ${DESCRIPTION}
- Pipeline completa per la trascrizione di video YouTube e file audio/video locali.
+ Pipeline completa per la trascrizione di URL video / sorgenti online supportate da yt-dlp e file audio/video locali.
  Utilizza Whisper.cpp con supporto GPU (Vulkan/CUDA) o faster-whisper come fallback.
  Genera trascrizioni in formato docx, pdf, txt, srt, vtt con interfaccia grafica
  in stile Matrix. Sviluppato per Studio GD LEX.

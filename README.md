@@ -1,15 +1,15 @@
 # yt-transcriber
 
 **Pipeline Trascrizione Audio/Video — Studio GD LEX**  
-Versione 1.0.8 · 2026 · Licenza: Proprietaria
+Versione 1.0.9 · 2026 · Licenza: Proprietaria
 
 ---
 
 ## 1. Cos'è e a cosa serve
 
-`yt-transcriber` è un programma con interfaccia grafica che permette di **trascrivere automaticamente** video YouTube e file audio/video locali.
+`yt-transcriber` è un programma con interfaccia grafica che permette di **trascrivere automaticamente** URL video / sorgenti online supportate da `yt-dlp` e file audio/video locali.
 
-Dato un URL di YouTube o un file sul proprio computer, il programma:
+Dato un URL video pubblico supportato da `yt-dlp` oppure un file sul proprio computer, il programma:
 
 1. scarica (o legge) l'audio;
 2. può normalizzarlo opzionalmente per migliorare la qualità della trascrizione;
@@ -35,7 +35,7 @@ La normalizzazione audio è ora disponibile anche dalla GUI tramite toggle Matri
 | PyQt6 | qualsiasi | Libreria Python per l'interfaccia grafica |
 | ffmpeg | qualsiasi | Elaborazione audio/video |
 | Node.js | 16+ | Generazione documenti Word |
-| yt-dlp | qualsiasi | Download da YouTube |
+| yt-dlp | qualsiasi | Download da sorgenti online supportate |
 | bc | qualsiasi | Calcolo avanzamento nella shell |
 | whisper.cpp | compilato | Motore di trascrizione (vedi sezione installazione) |
 | Modello Whisper | — | File `.bin` da scaricare separatamente |
@@ -64,7 +64,7 @@ La normalizzazione audio è ora disponibile anche dalla GUI tramite toggle Matri
 Un pacchetto già pronto è incluso nella cartella del progetto:
 
 ```bash
-sudo dpkg -i yt-transcriber_1.0.8_amd64.deb
+sudo dpkg -i yt-transcriber_1.0.9_amd64.deb
 sudo apt-get install -f   # risolve eventuali dipendenze mancanti
 ```
 
@@ -132,7 +132,7 @@ python3 yt-transcriber_gui.py
 ### Dalla riga di comando (senza interfaccia grafica)
 
 ```bash
-# Video YouTube
+# URL video / sorgente online
 bash yt-transcriber.sh "https://www.youtube.com/watch?v=..." "Titolo opzionale" ~/Trascrizioni
 
 # File locale
@@ -161,7 +161,7 @@ studio-tools/
 │                             # Gestisce whisper.cpp, faster-whisper, openai-whisper
 │
 ├── yt-transcriber.sh         # Script bash che esegue la pipeline completa:
-│                             # download → audio → trascrizione → output
+│                             # download sorgente online / file locale → audio → trascrizione → output
 │
 ├── make_docx_styled.js       # Genera il documento Word (.docx) formattato
 │                             # Usa la libreria Node.js "docx"
@@ -170,7 +170,7 @@ studio-tools/
 │
 ├── build_deb.sh              # Costruisce il pacchetto .deb installabile
 │
-├── yt-transcriber_1.0.8_amd64.deb   # Pacchetto installabile già pronto
+├── yt-transcriber_1.0.9_amd64.deb   # Pacchetto installabile già pronto
 │
 ├── package.json              # Dipendenze Node.js (libreria docx)
 └── node_modules/             # Librerie Node.js (generate da npm install)
@@ -189,6 +189,10 @@ studio-tools/
 - **PDF opzionale:** la generazione PDF richiede `pandoc` (consigliato) o la libreria Python `fpdf2`. Senza di essi, il formato PDF non viene prodotto.
 - **Richiede ambiente grafico:** l'interfaccia non funziona in modalità headless (es. server senza desktop). In quel caso usare `yt-transcriber.sh` da riga di comando.
 - **xclip per gli appunti:** il pulsante "Apri in Claude" copia il percorso del file negli appunti solo se `xclip` è installato (`sudo apt install xclip`).
+- **Supporto sorgenti online prudente:** il supporto effettivo dipende da `yt-dlp`, dagli extractor disponibili, dalla natura pubblica del contenuto e da eventuali richieste di login/cookie.
+- **Validazioni senza login registrate:** YouTube, Vimeo, Facebook Reel pubblico e Instagram Reel pubblico sono stati validati nei test pre-release della v1.0.9.
+- **Piattaforme non garantite in ogni caso:** Facebook video classico e TikTok senza login/cookie non sono garantiti nel perimetro attuale.
+- **Fallback consigliato:** se una sorgente online fallisce o richiede login/cookie, scaricare esternamente il file e usare poi la modalità File locale.
 
 ---
 
