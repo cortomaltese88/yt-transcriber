@@ -105,10 +105,11 @@ run_check "GUI: AUDIO_PREP_STATUS presente" grep -Fq 'AUDIO_PREP_STATUS' yt-tran
 run_check "GUI: toggle Normalizza audio presente" grep -Fq 'Normalizza audio' yt-transcriber_gui.py
 run_check "GUI file locale: campo editabile/incollabile" grep -Fq 'self.file_input = MatrixInput("Seleziona un file audio o video…")' yt-transcriber_gui.py
 run_check "GUI file locale: validazione is_file presente" grep -Fq 'path.is_file()' yt-transcriber_gui.py
+run_check "GUI URL: validazione http/https presente" grep -Fq 'parsed.scheme in {"http", "https"}' yt-transcriber_gui.py
 run_check "GUI download: YTDLP_PROGRESS presente" grep -Fq 'YTDLP_PROGRESS' yt-transcriber_gui.py
 run_check "GUI download: split(\":\", 5) presente" grep -Fq 'split(":", 5)' yt-transcriber_gui.py
 run_check "GUI download: _last_ytdlp_bucket presente" grep -Fq '_last_ytdlp_bucket' yt-transcriber_gui.py
-run_check "GUI download: log Download YouTube presente" grep -Fq 'Download YouTube:' yt-transcriber_gui.py
+run_check "GUI download: log Download video presente" grep -Fq 'Download video:' yt-transcriber_gui.py
 run_check "GUI fasi: preparazione audio presente" grep -Fq 'preparazione audio' yt-transcriber_gui.py
 run_check "Live transcript: TRANSCRIPT_LIVE presente in pipeline" grep -Fq 'TRANSCRIPT_LIVE' yt-transcriber.sh
 run_check "Live transcript: TRANSCRIPT_LIVE presente in GUI" grep -Fq 'TRANSCRIPT_LIVE' yt-transcriber_gui.py
@@ -118,9 +119,10 @@ run_check "Live transcript: card TRASCRIZIONE LIVE presente in GUI" grep -Fq 'TR
 run_check "Standby: systemd-inhibit presente" grep -Fq 'systemd-inhibit' yt-transcriber.sh
 run_check "Standby: sentinella YT_TRANSCRIBER_INHIBIT_ACTIVE presente" grep -Fq 'YT_TRANSCRIBER_INHIBIT_ACTIVE' yt-transcriber.sh
 run_check "Standby: log Protezione standby attiva presente" grep -Fq 'Protezione standby attiva' yt-transcriber.sh
-run_check "Download YouTube: --newline presente" grep -Fq -- '--newline' yt-transcriber.sh
-run_check "Download YouTube: --progress-template presente" grep -Fq -- '--progress-template' yt-transcriber.sh
-run_check "Download YouTube: prefisso YTDLP_PROGRESS presente" grep -Fq 'YTDLP_PROGRESS' yt-transcriber.sh
+run_check "Download sorgente online: testo presente" grep -Fq 'Download audio da sorgente online' yt-transcriber.sh
+run_check "Download video: --newline presente" grep -Fq -- '--newline' yt-transcriber.sh
+run_check "Download video: --progress-template presente" grep -Fq -- '--progress-template' yt-transcriber.sh
+run_check "Download video: prefisso YTDLP_PROGRESS presente" grep -Fq 'YTDLP_PROGRESS' yt-transcriber.sh
 
 if [[ $fail -eq 0 ]]; then
   printf "\nTutti i controlli smoke sono OK.\n"

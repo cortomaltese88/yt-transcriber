@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# yt-transcriber — Pipeline trascrizione video YouTube → .docx
+# yt-transcriber — Pipeline trascrizione video online → .docx
 #
 # USAGE:
-#   yt-transcriber.sh <URL_YouTube> [titolo] [cartella_output]
+#   yt-transcriber.sh <URL_video> [titolo] [cartella_output]
 #
 # DIPENDENZE:
 #   yt-dlp, ffmpeg, whisper.cpp (build-vulkan), node + docx, python3
@@ -79,7 +79,7 @@ show_help() {
 yt-transcriber.sh — Pipeline trascrizione
 
 USO:
-  yt-transcriber.sh <URL_YouTube> [titolo] [output_dir]
+  yt-transcriber.sh <URL_video> [titolo] [output_dir]
   yt-transcriber.sh --local <file_audio_video> [titolo] [output_dir]
   yt-transcriber.sh --help
 
@@ -236,7 +236,7 @@ main() {
   else
     url="${1:-}"
     title="${2:-}"
-    [[ -z "$url" ]] && err "Uso: yt-transcriber.sh <URL_YouTube> [titolo] [output_dir]"
+    [[ -z "$url" ]] && err "Uso: yt-transcriber.sh <URL_video> [titolo] [output_dir]"
   fi
 
   # Cartelle (pulisce la work dir per evitare residui di run precedenti)
@@ -256,7 +256,7 @@ main() {
     raw_audio="$local_file"
     ok "File: $(du -sh "$raw_audio" | cut -f1)"
   else
-    step "Download audio da YouTube"
+    step "Download audio da sorgente online"
     local ytdlp_status=0
     set +e
     yt-dlp -x --audio-format mp3 --audio-quality 0 \
@@ -273,7 +273,7 @@ main() {
       done
     ytdlp_status=${PIPESTATUS[0]}
     set -e
-    [[ $ytdlp_status -eq 0 ]] || err "Download YouTube fallito (yt-dlp exit $ytdlp_status)"
+    [[ $ytdlp_status -eq 0 ]] || err "Download sorgente online fallito (yt-dlp exit $ytdlp_status)"
 
     # Recupera titolo dal video se non fornito
     if [[ -z "$title" && -f "$WORK_DIR/video_title.txt" ]]; then

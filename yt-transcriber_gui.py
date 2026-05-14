@@ -7,6 +7,7 @@ Pipeline Trascrizione Audio/Video — Studio GD LEX
 import sys, os, re, signal, subprocess, json
 from pathlib import Path
 from datetime import datetime
+from urllib.parse import urlparse
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -223,7 +224,7 @@ class PipelineWorker(QThread):
                     if bucket != self._last_ytdlp_bucket:
                         self._last_ytdlp_bucket = bucket
                         self.log_line.emit(
-                            f"→ Download YouTube: {pct}% - {downloaded} / {total} - {speed} - ETA {eta}",
+                            f"→ Download video: {pct}% - {downloaded} / {total} - {speed} - ETA {eta}",
                             WHITE
                         )
                     continue
@@ -502,11 +503,11 @@ class MainWindow(QMainWindow):
             QTabBar::tab:hover {{ color:{GREEN_DIM}; }}
         """)
 
-        # Tab YouTube
+        # Tab URL video
         yt_tab = QWidget(); yt_tab.setStyleSheet("background:transparent;")
         yt_l = QVBoxLayout(yt_tab); yt_l.setContentsMargins(0,10,0,0); yt_l.setSpacing(6)
-        yt_l.addWidget(QLabel("URL YOUTUBE", styleSheet=f"color:{MUTED};font-family:{FONT_MONO};font-size:11px;letter-spacing:1px;background:transparent;"))
-        self.url_input = MatrixInput("https://www.youtube.com/watch?v=...   oppure   /live/...")
+        yt_l.addWidget(QLabel("URL VIDEO", styleSheet=f"color:{MUTED};font-family:{FONT_MONO};font-size:11px;letter-spacing:1px;background:transparent;"))
+        self.url_input = MatrixInput("https://www.youtube.com/...   oppure   altro URL supportato da yt-dlp")
         self.url_input.textChanged.connect(self._on_url_changed)
         self.url_input.returnPressed.connect(self._run_if_ready)
         yt_l.addWidget(self.url_input)
@@ -528,7 +529,7 @@ class MainWindow(QMainWindow):
             "video: mp4  mkv  avi  mov  wmv  webm  flv  ts  3gp",
             styleSheet=f"color:{MUTED};font-family:{FONT_MONO};font-size:10px;background:transparent;"))
 
-        self.tab_widget.addTab(yt_tab,    "▶  YouTube / URL")
+        self.tab_widget.addTab(yt_tab,    "▶  URL video")
         self.tab_widget.addTab(local_tab, "📁  File locale")
         self.tab_widget.currentChanged.connect(self._on_tab_changed)
         cv.addWidget(self.tab_widget)
@@ -795,8 +796,18 @@ class MainWindow(QMainWindow):
             return ""
         return str(path) if path.is_file() else ""
 
+    def _is_supported_remote_url(self, value):
+        candidate = value.strip()
+        if not candidate:
+            return False
+        try:
+            parsed = urlparse(candidate)
+        except Exception:
+            return False
+        return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
     def _on_url_changed(self, t):
-        ok = bool(t.strip()) and ("youtube.com" in t or "youtu.be" in t)
+        ok = self._is_supported_remote_url(t)
         self._set_input_validity(self.url_input, ok, bool(t.strip()))
         self._update_run_btn()
 
@@ -818,7 +829,7 @@ class MainWindow(QMainWindow):
             return
         if self._mode == "youtube":
             t = self.url_input.text().strip()
-            ok = bool(t) and ("youtube.com" in t or "youtu.be" in t)
+            ok = self._is_supported_remote_url(t)
         else:
             ok = bool(self._local_file)
         self.run_btn.setEnabled(ok)
@@ -1021,7 +1032,7 @@ class MainWindow(QMainWindow):
         self._stop_pulse()
         self.progress_bar.setValue(pct)
         if self._progress_mode == "download":
-            self.progress_bar.setFormat(f"  Download YouTube {pct}%")
+            self.progress_bar.setFormat(f"  Download video {pct}%")
         else:
             self.progress_bar.setFormat(f"  {pct}%")
         self.eta_lbl.setText(f"eta: {eta}")
