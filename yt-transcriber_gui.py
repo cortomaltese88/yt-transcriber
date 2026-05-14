@@ -87,6 +87,7 @@ RED        = "#FF6B6B"
 MUTED      = "#4A6A4A"
 BORDER     = "#243A24"
 WHITE      = "#E0FFE0"
+LIVE_TEXT  = "#D8FFD8"
 FONT_MONO  = "JetBrains Mono, Fira Code, Monospace, Courier New"
 ENABLE_BACKSTAGE_MATRIX_RAIN = True
 ENABLE_MATRIX_EASTER_EGGS = True
@@ -789,7 +790,7 @@ class MainWindow(QMainWindow):
         self.transcript_view.setFont(QFont(FONT_MONO, 12))
         self.transcript_view.setStyleSheet(f"""
             QTextEdit {{
-                background:#0A120A; color:{WHITE};
+                background:#0A120A; color:{LIVE_TEXT};
                 border:1px solid {GREEN_DARK}; border-radius:4px; padding:12px;
             }}
         """)
