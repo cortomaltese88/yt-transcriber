@@ -4,7 +4,7 @@ yt-transcriber GUI v1.0.9
 Pipeline Trascrizione Audio/Video — Studio GD LEX
 """
 
-import sys, os, re, signal, subprocess, json
+import sys, os, re, signal, subprocess, json, random
 from pathlib import Path
 from datetime import datetime
 from urllib.parse import urlparse
@@ -13,7 +13,8 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QTextEdit, QProgressBar,
     QFileDialog, QFrame, QSizePolicy, QMessageBox, QScrollArea,
-    QTabWidget, QSplashScreen, QComboBox, QListWidget, QListWidgetItem, QMenu
+    QTabWidget, QSplashScreen, QComboBox, QListWidget, QListWidgetItem, QMenu,
+    QStackedLayout
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QRect
 from PyQt6.QtGui import (QFont, QTextCursor, QPalette, QColor,
@@ -87,6 +88,23 @@ MUTED      = "#4A6A4A"
 BORDER     = "#243A24"
 WHITE      = "#E0FFE0"
 FONT_MONO  = "JetBrains Mono, Fira Code, Monospace, Courier New"
+ENABLE_BACKSTAGE_MATRIX_RAIN = True
+ENABLE_MATRIX_EASTER_EGGS = True
+BACKSTAGE_MATRIX_IDLE_MS = 1500
+BACKSTAGE_MATRIX_FRAME_MS = 120
+MATRIX_IDLE_MESSAGES = [
+    "NEO, OPEN YOUR EYES",
+    "KNOCK KNOCK...",
+    "WAKE UP...",
+    "FOLLOW THE WHITE RABBIT",
+    "SIGNAL ACQUIRED",
+    "SEARCHING THE SOURCE",
+    "ACCESSING STREAM",
+    "LISTENING...",
+    "RED PILL ACCEPTED",
+    "BLUE PILL: WAIT",
+    "RED PILL: TRACE",
+]
 
 # ── Cronologia ────────────────────────────────────────────────────────────────
 def load_history():
@@ -362,6 +380,109 @@ def toggle_btn(label, checked=False, enabled=True):
     return btn
 
 
+class MatrixRainWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._tick)
+        self._active = False
+        self._columns = []
+        self._idle_message = ""
+        self.setMinimumHeight(130)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+
+    def start_animation(self):
+        if self._active:
+            return
+        self._active = True
+        self._reset_columns()
+        if ENABLE_MATRIX_EASTER_EGGS and MATRIX_IDLE_MESSAGES:
+            self._idle_message = random.choice(MATRIX_IDLE_MESSAGES)
+        else:
+            self._idle_message = ""
+        self._timer.start(BACKSTAGE_MATRIX_FRAME_MS)
+        self.update()
+
+    def stop_animation(self):
+        if not self._active and not self._timer.isActive():
+            return
+        self._active = False
+        self._timer.stop()
+        self._idle_message = ""
+        self.update()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self._active:
+            self._reset_columns()
+
+    def _reset_columns(self):
+        chars = "01アイウエオカキクケコサシスセソ"
+        usable_width = max(1, self.width() - 24)
+        count = max(6, usable_width // 28)
+        self._columns = []
+        for idx in range(count):
+            self._columns.append({
+                "x": 14 + idx * max(18, usable_width // count),
+                "y": random.randint(-120, max(10, self.height())),
+                "speed": random.randint(9, 18),
+                "length": random.randint(4, 8),
+                "chars": [random.choice(chars) for _ in range(random.randint(4, 8))],
+            })
+
+    def _tick(self):
+        if not self._active:
+            return
+        chars = "01アイウエオカキクケコサシスセソ"
+        bottom = self.height() + 50
+        for col in self._columns:
+            col["y"] += col["speed"]
+            if random.random() < 0.25 and col["chars"]:
+                col["chars"][-1] = random.choice(chars)
+            if col["y"] > bottom:
+                col["y"] = random.randint(-120, -20)
+                col["speed"] = random.randint(9, 18)
+                col["chars"] = [random.choice(chars) for _ in range(random.randint(4, 8))]
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), QColor("#0A120A"))
+        painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
+
+        if self._active:
+            painter.setFont(QFont("Monospace", 10))
+            for col in self._columns:
+                for row, char in enumerate(col["chars"]):
+                    y = col["y"] + row * 14
+                    if y < 18 or y > self.height() - 8:
+                        continue
+                    frac = (row + 1) / max(1, len(col["chars"]))
+                    alpha = int(70 + frac * 120)
+                    if row == len(col["chars"]) - 1:
+                        painter.setPen(QColor(180, 255, 180, min(220, alpha + 30)))
+                    else:
+                        painter.setPen(QColor(40, 170, 70, alpha))
+                    painter.drawText(col["x"], int(y), char)
+
+        painter.setFont(QFont(FONT_MONO, 10))
+        painter.setPen(QColor("#90EE90"))
+        painter.drawText(
+            QRect(0, 10, self.width(), 24),
+            Qt.AlignmentFlag.AlignHCenter,
+            "In attesa output backend..."
+        )
+        if self._idle_message:
+            painter.setFont(QFont(FONT_MONO, 11, QFont.Weight.Bold))
+            painter.setPen(QColor(110, 220, 130, 170))
+            painter.drawText(
+                QRect(18, self.height() - 42, self.width() - 36, 22),
+                Qt.AlignmentFlag.AlignHCenter,
+                self._idle_message
+            )
+        painter.end()
+
+
 # ── Finestra principale ───────────────────────────────────────────────────────
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -383,6 +504,9 @@ class MainWindow(QMainWindow):
         self._pulse_dir     = 1
         self._progress_mode = ""
         self._last_transcript_chunk = ""
+        self._backend_idle_timer = QTimer(self)
+        self._backend_idle_timer.setSingleShot(True)
+        self._backend_idle_timer.timeout.connect(self._show_backend_idle_if_quiet)
 
         self.setWindowTitle(f"yt-transcriber v{APP_VERSION} — Studio GD LEX")
         self.setMinimumSize(1000, 860)
@@ -684,7 +808,13 @@ class MainWindow(QMainWindow):
                 border:1px solid {BORDER}; border-radius:4px; padding:12px;
             }}
         """)
-        clv.addWidget(self.log_view)
+        self.log_idle_view = MatrixRainWidget()
+        self.log_stack = QStackedLayout()
+        self.log_stack.setStackingMode(QStackedLayout.StackingMode.StackOne)
+        self.log_stack.addWidget(self.log_view)
+        self.log_stack.addWidget(self.log_idle_view)
+        self.log_stack.setCurrentWidget(self.log_view)
+        clv.addLayout(self.log_stack)
         body.addWidget(cl2)
 
         # ── CRONOLOGIA ────────────────────────────────────────────────────────
@@ -860,7 +990,9 @@ class MainWindow(QMainWindow):
             if not self.title_input.text().strip():
                 self.title_input.setText(Path(f).stem)
 
-    def _clear_log(self): self.log_view.clear()
+    def _clear_log(self):
+        self._hide_backend_idle_animation()
+        self.log_view.clear()
 
     def _clear_transcript(self):
         self.transcript_view.clear()
@@ -898,6 +1030,7 @@ class MainWindow(QMainWindow):
         self._log("→  claude.ai aperto nel browser", GREEN_DIM)
 
     def _cancel(self):
+        self._hide_backend_idle_animation()
         self._stop_pulse()
         if self.worker:
             self.worker.cancel()
@@ -905,7 +1038,26 @@ class MainWindow(QMainWindow):
         self._log("⚠  Annullamento richiesto…", GOLD)
 
     # ── Log ───────────────────────────────────────────────────────────────────
+    def _restart_backend_idle_timer(self):
+        if not ENABLE_BACKSTAGE_MATRIX_RAIN:
+            return
+        if self.worker and self.worker.isRunning():
+            self._backend_idle_timer.start(BACKSTAGE_MATRIX_IDLE_MS)
+
+    def _show_backend_idle_if_quiet(self):
+        if not ENABLE_BACKSTAGE_MATRIX_RAIN:
+            return
+        if self.worker and self.worker.isRunning():
+            self.log_stack.setCurrentWidget(self.log_idle_view)
+            self.log_idle_view.start_animation()
+
+    def _hide_backend_idle_animation(self):
+        self._backend_idle_timer.stop()
+        self.log_idle_view.stop_animation()
+        self.log_stack.setCurrentWidget(self.log_view)
+
     def _log(self, text, color=None):
+        self._hide_backend_idle_animation()
         c = color or GREEN_DIM
         cursor = self.log_view.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
@@ -917,6 +1069,7 @@ class MainWindow(QMainWindow):
         self.log_view.setTextCursor(cursor)
         self.log_view.verticalScrollBar().setValue(self.log_view.verticalScrollBar().maximum())
         self.log_view.ensureCursorVisible()
+        self._restart_backend_idle_timer()
 
     # ── Badges ────────────────────────────────────────────────────────────────
     def _reset_badges(self):
@@ -994,6 +1147,7 @@ class MainWindow(QMainWindow):
         self.worker.step_idx.connect(self._on_step)
         self.worker.finished.connect(self._on_finished)
         self.worker.start()
+        self._restart_backend_idle_timer()
 
     def _on_log(self, text, color):
         self._log(text, color)
@@ -1059,6 +1213,7 @@ class MainWindow(QMainWindow):
         self.transcript_view.ensureCursorVisible()
 
     def _on_finished(self, success, msg):
+        self._hide_backend_idle_animation()
         self._stop_pulse()
         self.options_card.show()
         self.cancel_btn.setEnabled(False)
