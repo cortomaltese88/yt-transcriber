@@ -1,7 +1,7 @@
 # yt-transcriber
 
 **Pipeline Trascrizione Audio/Video — Studio GD LEX**  
-Versione 1.0.9 · 2026 · Licenza: Proprietaria
+Versione 1.1.0 · 2026 · Licenza: Proprietaria
 
 ---
 
@@ -22,6 +22,16 @@ Dato un URL video pubblico supportato da `yt-dlp` oppure un file sul proprio com
 Per impostazione predefinita il comportamento resta conservativo: non viene applicata alcuna normalizzazione automatica e `VOLUME_BOOST=1.0` non aggiunge alcun filtro audio. Se serve, è possibile attivare opzionalmente `AUDIO_NORMALIZE=1` per usare `ffmpeg loudnorm` su audio troppo basso, troppo alto o irregolare. `VOLUME_BOOST` resta disponibile come opzione manuale e viene usato solo quando `AUDIO_NORMALIZE=0`.
 
 La normalizzazione audio è ora disponibile anche dalla GUI tramite toggle Matrix `Normalizza audio`, disattivato di default. Quando il toggle è attivo la GUI passa `AUDIO_NORMALIZE=1` alla pipeline; quando è disattivo passa `AUDIO_NORMALIZE=0`.
+
+### Novità v1.1.0
+
+- system tray icon opzionale con menu contestuale
+- notifiche minime per completamento, errore e annullamento
+- single-instance: un nuovo avvio richiama l'istanza già aperta
+- Matrix rain idle nel pannello LOG con white rabbit asset-based
+- rifinitura cromatica della card `TRASCRIZIONE LIVE`
+
+Nota prudente: il supporto delle sorgenti online resta dipendente da `yt-dlp`; in particolare il caveat YouTube sul runtime JavaScript assente resta da monitorare come tema infrastrutturale futuro.
 
 ---
 
@@ -64,7 +74,7 @@ La normalizzazione audio è ora disponibile anche dalla GUI tramite toggle Matri
 Un pacchetto già pronto è incluso nella cartella del progetto:
 
 ```bash
-sudo dpkg -i yt-transcriber_1.0.9_amd64.deb
+sudo dpkg -i yt-transcriber_1.1.0_amd64.deb
 sudo apt-get install -f   # risolve eventuali dipendenze mancanti
 ```
 
@@ -170,7 +180,7 @@ studio-tools/
 │
 ├── build_deb.sh              # Costruisce il pacchetto .deb installabile
 │
-├── yt-transcriber_1.0.9_amd64.deb   # Pacchetto installabile già pronto
+├── yt-transcriber_1.1.0_amd64.deb   # Pacchetto installabile già pronto
 │
 ├── package.json              # Dipendenze Node.js (libreria docx)
 └── node_modules/             # Librerie Node.js (generate da npm install)
