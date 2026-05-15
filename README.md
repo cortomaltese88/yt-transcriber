@@ -1,7 +1,7 @@
 # yt-transcriber
 
 **Pipeline Trascrizione Audio/Video — Studio GD LEX**  
-Versione 1.1.0 · 2026 · Licenza: Proprietaria
+Versione 1.1.1 · 2026 · Licenza: Proprietaria
 
 ---
 
@@ -30,6 +30,14 @@ La normalizzazione audio è ora disponibile anche dalla GUI tramite toggle Matri
 - single-instance: un nuovo avvio richiama l'istanza già aperta
 - Matrix rain idle nel pannello LOG con white rabbit asset-based
 - rifinitura cromatica della card `TRASCRIZIONE LIVE`
+
+### Bugfix v1.1.1
+
+- gestione robusta di `whisper-cli` e del modello Whisper
+- supporto env `YT_TRANSCRIBER_WHISPER_BIN` e `YT_TRANSCRIBER_WHISPER_MODEL`
+- blocco avvio pipeline se backend Whisper mancante
+- warning chiaro per prima installazione senza `whisper.cpp` o modello `.bin`
+- documentazione backend Whisper aggiornata nel README
 
 Nota prudente: il supporto delle sorgenti online resta dipendente da `yt-dlp`; in particolare il caveat YouTube sul runtime JavaScript assente resta da monitorare come tema infrastrutturale futuro.
 
@@ -74,7 +82,7 @@ Nota prudente: il supporto delle sorgenti online resta dipendente da `yt-dlp`; i
 Un pacchetto già pronto è incluso nella cartella del progetto:
 
 ```bash
-sudo dpkg -i yt-transcriber_1.1.0_amd64.deb
+sudo dpkg -i yt-transcriber_1.1.1_amd64.deb
 sudo apt-get install -f   # risolve eventuali dipendenze mancanti
 ```
 
@@ -219,7 +227,7 @@ studio-tools/
 │
 ├── build_deb.sh              # Costruisce il pacchetto .deb installabile
 │
-├── yt-transcriber_1.1.0_amd64.deb   # Pacchetto installabile già pronto
+├── yt-transcriber_1.1.1_amd64.deb   # Pacchetto installabile già pronto
 │
 ├── package.json              # Dipendenze Node.js (libreria docx)
 └── node_modules/             # Librerie Node.js (generate da npm install)
