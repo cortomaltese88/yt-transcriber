@@ -41,6 +41,10 @@ cp "$SOURCE_DIR/transcriber_backend.py"  "$BUILD_DIR/usr/lib/${PACKAGE}/"
 cp "$SOURCE_DIR/make_docx_styled.js"     "$BUILD_DIR/usr/lib/${PACKAGE}/"
 cp "$SOURCE_DIR/set_lang_it.py"         "$BUILD_DIR/usr/lib/${PACKAGE}/"
 
+if [[ -d "$SOURCE_DIR/assets" ]]; then
+    cp -r "$SOURCE_DIR/assets" "$BUILD_DIR/usr/lib/${PACKAGE}/"
+fi
+
 # node_modules (docx) — se presenti
 if [[ -d "$SOURCE_DIR/node_modules" ]]; then
     cp -r "$SOURCE_DIR/node_modules" "$BUILD_DIR/usr/lib/${PACKAGE}/"

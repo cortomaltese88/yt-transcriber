@@ -91,8 +91,16 @@ LIVE_TEXT  = "#D8FFD8"
 FONT_MONO  = "JetBrains Mono, Fira Code, Monospace, Courier New"
 ENABLE_BACKSTAGE_MATRIX_RAIN = True
 ENABLE_MATRIX_EASTER_EGGS = True
+ENABLE_WHITE_RABBIT_EASTER_EGGS = True
 BACKSTAGE_MATRIX_IDLE_MS = 1500
 BACKSTAGE_MATRIX_FRAME_MS = 120
+WHITE_RABBIT_CHANCE = 0.50
+WHITE_RABBIT_MIN_COOLDOWN_TICKS = 18
+WHITE_RABBIT_MAX_COOLDOWN_TICKS = 35
+MATRIX_ASSET_DIR = PIPELINE_DIR / "assets" / "matrix"
+WHITE_RABBIT_FRAME_NAMES = tuple(
+    f"white_rabbit_{idx}.png" for idx in range(4)
+)
 MATRIX_IDLE_MESSAGES = [
     "NEO, OPEN YOUR EYES",
     "KNOCK KNOCK...",
@@ -389,7 +397,16 @@ class MatrixRainWidget(QWidget):
         self._active = False
         self._columns = []
         self._idle_message = ""
-        self.setMinimumHeight(130)
+        self._rabbit_frames = self._load_rabbit_frames()
+        self._rabbit_active = False
+        self._rabbit_x = -self._rabbit_sprite_width()
+        self._rabbit_base_y = 0
+        self._rabbit_y = 0
+        self._rabbit_frame_index = 0
+        self._rabbit_speed = 5
+        self._rabbit_hop_phase = 0
+        self._rabbit_spawn_cooldown_ticks = 0
+        self.setMinimumHeight(156)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
     def start_animation(self):
@@ -401,6 +418,9 @@ class MatrixRainWidget(QWidget):
             self._idle_message = random.choice(MATRIX_IDLE_MESSAGES)
         else:
             self._idle_message = ""
+        self._try_spawn_rabbit()
+        if not self._rabbit_active:
+            self._rabbit_spawn_cooldown_ticks = random.randint(8, 12)
         self._timer.start(BACKSTAGE_MATRIX_FRAME_MS)
         self.update()
 
@@ -410,6 +430,11 @@ class MatrixRainWidget(QWidget):
         self._active = False
         self._timer.stop()
         self._idle_message = ""
+        self._rabbit_active = False
+        self._rabbit_x = -self._rabbit_sprite_width()
+        self._rabbit_base_y = 0
+        self._rabbit_hop_phase = 0
+        self._rabbit_spawn_cooldown_ticks = 0
         self.update()
 
     def resizeEvent(self, event):
@@ -431,6 +456,72 @@ class MatrixRainWidget(QWidget):
                 "chars": [random.choice(chars) for _ in range(random.randint(4, 8))],
             })
 
+    def _load_rabbit_frames(self):
+        frames = []
+        for name in WHITE_RABBIT_FRAME_NAMES:
+            pixmap = QPixmap(str(MATRIX_ASSET_DIR / name))
+            if pixmap.isNull():
+                return []
+            frames.append(pixmap)
+        return frames
+
+    def _rabbit_sprite_width(self):
+        return self._rabbit_frames[0].width() if self._rabbit_frames else 64
+
+    def _rabbit_sprite_height(self):
+        return self._rabbit_frames[0].height() if self._rabbit_frames else 40
+
+    def _top_status_height(self):
+        return 30
+
+    def _bottom_lane_height(self):
+        return 58
+
+    def _easter_egg_text_rect(self):
+        return QRect(18, self.height() - 28, self.width() - 36, 22)
+
+    def _rabbit_lane_top(self):
+        return self.height() - self._bottom_lane_height()
+
+    def _next_rabbit_spawn_cooldown(self):
+        return random.randint(
+            WHITE_RABBIT_MIN_COOLDOWN_TICKS,
+            WHITE_RABBIT_MAX_COOLDOWN_TICKS
+        )
+
+    def _try_spawn_rabbit(self):
+        if self._rabbit_active:
+            return
+        if not self._rabbit_frames:
+            self._rabbit_frames = self._load_rabbit_frames()
+        if not ENABLE_WHITE_RABBIT_EASTER_EGGS or not self._rabbit_frames:
+            return
+        if random.random() > WHITE_RABBIT_CHANCE:
+            return
+        self._rabbit_x = -self._rabbit_sprite_width()
+        self._rabbit_frame_index = 0
+        self._rabbit_hop_phase = 0
+        self._rabbit_speed = random.randint(5, 6)
+        self._rabbit_active = True
+        lane_top = self._rabbit_lane_top()
+        self._rabbit_base_y = max(
+            self._top_status_height() + 12,
+            lane_top - self._rabbit_sprite_height() - random.randint(4, 10)
+        )
+        self._rabbit_y = self._rabbit_base_y
+        self._rabbit_spawn_cooldown_ticks = 0
+
+    def _draw_rabbit(self, painter):
+        if not self._rabbit_active or not self._rabbit_frames:
+            return
+        painter.setOpacity(0.90)
+        painter.drawPixmap(
+            int(self._rabbit_x),
+            int(self._rabbit_y),
+            self._rabbit_frames[self._rabbit_frame_index]
+        )
+        painter.setOpacity(1.0)
+
     def _tick(self):
         if not self._active:
             return
@@ -444,27 +535,53 @@ class MatrixRainWidget(QWidget):
                 col["y"] = random.randint(-120, -20)
                 col["speed"] = random.randint(9, 18)
                 col["chars"] = [random.choice(chars) for _ in range(random.randint(4, 8))]
+        if self._rabbit_active:
+            self._rabbit_x += self._rabbit_speed
+            self._rabbit_hop_phase = (self._rabbit_hop_phase + 1) % 8
+            hop = (0, -4, -10, -14, -9, -3, 1, 0)[self._rabbit_hop_phase]
+            self._rabbit_y = self._rabbit_base_y + hop
+            self._rabbit_frame_index = (self._rabbit_frame_index + 1) % len(self._rabbit_frames)
+            if self._rabbit_x > self.width() + self._rabbit_sprite_width():
+                self._rabbit_active = False
+                self._rabbit_spawn_cooldown_ticks = self._next_rabbit_spawn_cooldown()
+        else:
+            if self._rabbit_spawn_cooldown_ticks > 0:
+                self._rabbit_spawn_cooldown_ticks -= 1
+            if self._rabbit_spawn_cooldown_ticks <= 0:
+                self._try_spawn_rabbit()
+                if not self._rabbit_active:
+                    self._rabbit_spawn_cooldown_ticks = self._next_rabbit_spawn_cooldown()
         self.update()
 
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.fillRect(self.rect(), QColor("#0A120A"))
         painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
+        top_status_height = self._top_status_height()
+        rabbit_lane_top = self._rabbit_lane_top()
+        easter_egg_rect = self._easter_egg_text_rect()
 
         if self._active:
             painter.setFont(QFont("Monospace", 10))
             for col in self._columns:
                 for row, char in enumerate(col["chars"]):
                     y = col["y"] + row * 14
-                    if y < 18 or y > self.height() - 8:
+                    if y < top_status_height + 8 or y > self.height() - 8:
                         continue
                     frac = (row + 1) / max(1, len(col["chars"]))
                     alpha = int(70 + frac * 120)
+                    if y >= rabbit_lane_top - 6:
+                        alpha = max(38, int(alpha * 0.45))
                     if row == len(col["chars"]) - 1:
                         painter.setPen(QColor(180, 255, 180, min(220, alpha + 30)))
                     else:
                         painter.setPen(QColor(40, 170, 70, alpha))
                     painter.drawText(col["x"], int(y), char)
+        text_overlay_rect = easter_egg_rect.adjusted(-14, -5, 14, 5)
+        painter.setPen(QColor(70, 150, 90, 40))
+        painter.setBrush(QColor(6, 14, 6, 42))
+        painter.drawRoundedRect(text_overlay_rect, 6, 6)
+        self._draw_rabbit(painter)
 
         painter.setFont(QFont(FONT_MONO, 10))
         painter.setPen(QColor("#90EE90"))
@@ -477,7 +594,7 @@ class MatrixRainWidget(QWidget):
             painter.setFont(QFont(FONT_MONO, 11, QFont.Weight.Bold))
             painter.setPen(QColor(110, 220, 130, 170))
             painter.drawText(
-                QRect(18, self.height() - 42, self.width() - 36, 22),
+                easter_egg_rect,
                 Qt.AlignmentFlag.AlignHCenter,
                 self._idle_message
             )

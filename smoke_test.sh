@@ -89,6 +89,17 @@ else
   ko "Presenza directory: node_modules/docx"
 fi
 
+for rabbit_frame in assets/matrix/white_rabbit_0.png \
+                    assets/matrix/white_rabbit_1.png \
+                    assets/matrix/white_rabbit_2.png \
+                    assets/matrix/white_rabbit_3.png; do
+  if [[ -f "$rabbit_frame" ]]; then
+    ok "Presenza asset: $rabbit_frame"
+  else
+    ko "Presenza asset: $rabbit_frame"
+  fi
+done
+
 run_check "Pipeline audio: AUDIO_NORMALIZE presente" grep -Fq 'AUDIO_NORMALIZE' yt-transcriber.sh
 run_check "Pipeline audio: loudnorm presente" grep -Fq 'loudnorm' yt-transcriber.sh
 run_check "Pipeline audio: AUDIO_PREP_STATUS presente" grep -Fq 'AUDIO_PREP_STATUS' yt-transcriber.sh
@@ -111,6 +122,8 @@ run_check "GUI download: split(\":\", 5) presente" grep -Fq 'split(":", 5)' yt-t
 run_check "GUI download: _last_ytdlp_bucket presente" grep -Fq '_last_ytdlp_bucket' yt-transcriber_gui.py
 run_check "GUI download: log Download video presente" grep -Fq 'Download video:' yt-transcriber_gui.py
 run_check "GUI fasi: preparazione audio presente" grep -Fq 'preparazione audio' yt-transcriber_gui.py
+run_check "GUI Matrix: WHITE_RABBIT presente" grep -Fq 'WHITE_RABBIT' yt-transcriber_gui.py
+run_check "GUI Matrix: assets/matrix presente" grep -Fq 'assets" / "matrix"' yt-transcriber_gui.py
 run_check "Live transcript: TRANSCRIPT_LIVE presente in pipeline" grep -Fq 'TRANSCRIPT_LIVE' yt-transcriber.sh
 run_check "Live transcript: TRANSCRIPT_LIVE presente in GUI" grep -Fq 'TRANSCRIPT_LIVE' yt-transcriber_gui.py
 run_check "Live transcript: transcript_chunk presente in GUI" grep -Fq 'transcript_chunk' yt-transcriber_gui.py
@@ -123,6 +136,7 @@ run_check "Download sorgente online: testo presente" grep -Fq 'Download audio da
 run_check "Download video: --newline presente" grep -Fq -- '--newline' yt-transcriber.sh
 run_check "Download video: --progress-template presente" grep -Fq -- '--progress-template' yt-transcriber.sh
 run_check "Download video: prefisso YTDLP_PROGRESS presente" grep -Fq 'YTDLP_PROGRESS' yt-transcriber.sh
+run_check "Packaging assets Matrix presenti" grep -Fq 'cp -r "$SOURCE_DIR/assets" "$BUILD_DIR/usr/lib/${PACKAGE}/"' build_deb.sh
 
 if [[ $fail -eq 0 ]]; then
   printf "\nTutti i controlli smoke sono OK.\n"
