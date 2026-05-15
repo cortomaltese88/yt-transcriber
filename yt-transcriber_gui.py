@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (
     QStackedLayout, QSystemTrayIcon
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QRect
+from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtGui import (QFont, QTextCursor, QPalette, QColor,
                           QPixmap, QPainter, QPen, QBrush, QLinearGradient,
                           QAction, QIcon)
@@ -40,6 +41,7 @@ WHISPER_BIN   = Path.home() / "whisper.cpp/build-vulkan/bin/whisper-cli"
 WHISPER_MODEL = Path.home() / "whisper.cpp/models/ggml-medium.bin"
 DEFAULT_OUT   = Path.home() / "Trascrizioni"
 SCRIPT_SH     = PIPELINE_DIR / "yt-transcriber.sh"
+SINGLE_INSTANCE_SERVER_NAME = "yt-transcriber-gdlex"
 
 HISTORY_FILE  = Path.home() / ".config/yt-transcriber/history.json"
 
@@ -633,6 +635,7 @@ class MainWindow(QMainWindow):
         self.setAcceptDrops(True)
         self._setup_style()
         self._build_ui()
+        self._setup_single_instance_server()
         self._setup_tray()
         self._check_deps()
         self._update_tray_state()
@@ -1132,6 +1135,36 @@ class MainWindow(QMainWindow):
                 if not icon.isNull():
                     return icon
         return QIcon.fromTheme("yt-transcriber")
+
+    def _setup_single_instance_server(self):
+        self.instance_server = QLocalServer(self)
+        self.instance_server.newConnection.connect(self._on_single_instance_connection)
+        if self.instance_server.listen(SINGLE_INSTANCE_SERVER_NAME):
+            return
+        QLocalServer.removeServer(SINGLE_INSTANCE_SERVER_NAME)
+        if not self.instance_server.listen(SINGLE_INSTANCE_SERVER_NAME):
+            self.instance_server.deleteLater()
+            self.instance_server = None
+
+    def _on_single_instance_connection(self):
+        if self.instance_server is None:
+            return
+        while self.instance_server.hasPendingConnections():
+            socket = self.instance_server.nextPendingConnection()
+            if socket is None:
+                continue
+            socket.waitForReadyRead(250)
+            message = bytes(socket.readAll()).decode("utf-8", errors="ignore").strip()
+            if not message or "SHOW" in message:
+                self._show_from_single_instance_request()
+            socket.disconnectFromServer()
+
+    def _show_from_single_instance_request(self):
+        if not self.isVisible():
+            self.show()
+        self.showNormal()
+        self.raise_()
+        self.activateWindow()
 
     def _tray_icon(self):
         for candidate in (
@@ -1743,6 +1776,15 @@ def main():
     app.setDesktopFileName("yt-transcriber")
     app.setStyle("Fusion")
 
+    show_socket = QLocalSocket()
+    show_socket.connectToServer(SINGLE_INSTANCE_SERVER_NAME)
+    if show_socket.waitForConnected(250):
+        show_socket.write(b"SHOW")
+        show_socket.flush()
+        show_socket.waitForBytesWritten(250)
+        show_socket.disconnectFromServer()
+        return 0
+
     pal = QPalette()
     pal.setColor(QPalette.ColorRole.Window,          QColor(BG))
     pal.setColor(QPalette.ColorRole.WindowText,      QColor(GREEN))
@@ -1777,8 +1819,8 @@ def main():
     w = MainWindow()
     w.show()
     splash.finish(w)
-    sys.exit(app.exec())
+    return app.exec()
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
