@@ -4,7 +4,7 @@ yt-transcriber GUI v1.1.0
 Pipeline Trascrizione Audio/Video — Studio GD LEX
 """
 
-import sys, os, re, signal, subprocess, json, random
+import sys, os, re, signal, subprocess, json, random, shutil
 from pathlib import Path
 from datetime import datetime
 from urllib.parse import urlparse
@@ -37,11 +37,28 @@ except Exception:
 
 # ── Config ─────────────────────────────────────────────────────────────────────
 PIPELINE_DIR  = Path(__file__).parent
-WHISPER_BIN   = Path.home() / "whisper.cpp/build-vulkan/bin/whisper-cli"
-WHISPER_MODEL = Path.home() / "whisper.cpp/models/ggml-medium.bin"
 DEFAULT_OUT   = Path.home() / "Trascrizioni"
 SCRIPT_SH     = PIPELINE_DIR / "yt-transcriber.sh"
 SINGLE_INSTANCE_SERVER_NAME = "yt-transcriber-gdlex"
+YT_TRANSCRIBER_WHISPER_BIN_ENV = "YT_TRANSCRIBER_WHISPER_BIN"
+YT_TRANSCRIBER_WHISPER_MODEL_ENV = "YT_TRANSCRIBER_WHISPER_MODEL"
+LEGACY_WHISPER_BIN_ENV = "WHISPER_BIN"
+LEGACY_WHISPER_MODEL_ENV = "WHISPER_MODEL"
+
+WHISPER_BIN_CANDIDATES = (
+    Path.home() / "whisper.cpp/build-vulkan/bin/whisper-cli",
+    Path.home() / "whisper.cpp/build-cuda/bin/whisper-cli",
+    Path.home() / "whisper.cpp/build/bin/whisper-cli",
+    Path("/usr/local/bin/whisper-cli"),
+    Path("/usr/bin/whisper-cli"),
+)
+
+WHISPER_MODEL_BASE_DIRS = (
+    Path.home() / "whisper.cpp/models",
+    Path.home() / ".local/share/yt-transcriber/models",
+    Path("/usr/share/yt-transcriber/models"),
+    Path("/usr/local/share/whisper.cpp/models"),
+)
 
 HISTORY_FILE  = Path.home() / ".config/yt-transcriber/history.json"
 
@@ -130,6 +147,98 @@ def save_history(items):
     HISTORY_FILE.write_text(json.dumps(items[-20:], ensure_ascii=False, indent=2))
 
 
+def _expand_candidate_path(value):
+    try:
+        return Path(value).expanduser()
+    except Exception:
+        return None
+
+
+def _is_executable_file(path):
+    return bool(path and path.is_file() and os.access(path, os.X_OK))
+
+
+def _normalize_model_filename(model_name):
+    raw = (model_name or "").strip()
+    if raw.endswith(".bin"):
+        raw = raw[:-4]
+    if raw.startswith("ggml-"):
+        raw = raw[5:]
+    return f"ggml-{raw}.bin" if raw else "ggml-medium.bin"
+
+
+def _resolve_model_candidate_paths(model_name):
+    filename = _normalize_model_filename(model_name)
+    return [base / filename for base in WHISPER_MODEL_BASE_DIRS], filename
+
+
+def resolve_whisper_bin():
+    issues = []
+    env_name = None
+    candidate = None
+    for name in (YT_TRANSCRIBER_WHISPER_BIN_ENV, LEGACY_WHISPER_BIN_ENV):
+        value = os.environ.get(name, "").strip()
+        if not value:
+            continue
+        env_name = name
+        candidate = _expand_candidate_path(value)
+        if candidate is None or not candidate.exists():
+            issues.append(f"{name} punta a un file inesistente")
+            candidate = None
+            break
+        if not candidate.is_file():
+            issues.append(f"{name} non punta a un file")
+            candidate = None
+            break
+        if not os.access(candidate, os.X_OK):
+            issues.append(f"{name} punta a un file non eseguibile")
+            candidate = None
+            break
+        return candidate, issues
+
+    which_path = shutil.which("whisper-cli")
+    if which_path:
+        candidate = _expand_candidate_path(which_path)
+        if _is_executable_file(candidate):
+            return candidate, issues
+
+    for candidate in WHISPER_BIN_CANDIDATES:
+        if _is_executable_file(candidate):
+            return candidate, issues
+
+    if env_name and not issues:
+        issues.append(f"{env_name} non valida")
+    return None, issues
+
+
+def resolve_whisper_model(model_name):
+    issues = []
+    filename = _normalize_model_filename(model_name)
+
+    for name in (YT_TRANSCRIBER_WHISPER_MODEL_ENV, LEGACY_WHISPER_MODEL_ENV):
+        value = os.environ.get(name, "").strip()
+        if not value:
+            continue
+        if "/" not in value and not value.endswith(".bin"):
+            model_name = value
+            filename = _normalize_model_filename(model_name)
+            break
+        candidate = _expand_candidate_path(value)
+        if candidate is None or not candidate.exists():
+            issues.append(f"{name} punta a un file inesistente")
+            return None, filename, issues
+        if not candidate.is_file():
+            issues.append(f"{name} non punta a un file")
+            return None, filename, issues
+        return candidate, candidate.name, issues
+
+    for candidate in _resolve_model_candidate_paths(model_name)[0]:
+        if candidate.is_file():
+            return candidate, candidate.name, issues
+
+    return None, filename, issues
+
+
 # ── Worker ────────────────────────────────────────────────────────────────────
 class PipelineWorker(QThread):
     log_line = pyqtSignal(str, str)
@@ -140,7 +249,8 @@ class PipelineWorker(QThread):
 
     def __init__(self, url, title, output_dir,
                  lang="it", timestamps=False, burn_subs=False,
-                 formats=None, model="medium", audio_normalize=False):
+                 formats=None, model="medium", audio_normalize=False,
+                 whisper_bin=None, whisper_model_path=None):
         super().__init__()
         self.url        = url
         self.title      = title
@@ -151,6 +261,8 @@ class PipelineWorker(QThread):
         self.formats    = formats or {"docx": True}
         self.model      = model
         self.audio_normalize = audio_normalize
+        self.whisper_bin = str(whisper_bin) if whisper_bin else ""
+        self.whisper_model_path = str(whisper_model_path) if whisper_model_path else ""
         self._cancelled = False
         self._proc      = None
         self._last_ytdlp_bucket = -1
@@ -180,7 +292,6 @@ class PipelineWorker(QThread):
     def run(self):
         env = os.environ.copy()
         env["WHISPER_LANG"]       = self.lang if self.lang != "auto" else ""
-        env["WHISPER_MODEL"]      = self.model
         env["WHISPER_TIMESTAMPS"] = "1" if self.timestamps else "0"
         env["WHISPER_BURN_SUBS"]  = "1" if self.burn_subs  else "0"
         env["AUDIO_NORMALIZE"]    = "1" if self.audio_normalize else "0"
@@ -189,6 +300,12 @@ class PipelineWorker(QThread):
         env["OUT_TXT"]  = "1" if self.formats.get("txt")  else "0"
         env["OUT_SRT"]  = "1" if self.formats.get("srt")  else "0"
         env["OUT_VTT"]  = "1" if self.formats.get("vtt")  else "0"
+        env["WHISPER_MODEL"] = self.whisper_model_path or self.model
+        if self.whisper_bin:
+            env["WHISPER_BIN"] = self.whisper_bin
+            env[YT_TRANSCRIBER_WHISPER_BIN_ENV] = self.whisper_bin
+        if self.whisper_model_path:
+            env[YT_TRANSCRIBER_WHISPER_MODEL_ENV] = self.whisper_model_path
 
         if self.url.startswith("LOCAL:"):
             cmd = [str(SCRIPT_SH), "--local", self.url[6:],
@@ -628,6 +745,7 @@ class MainWindow(QMainWindow):
         self._backend_idle_timer = QTimer(self)
         self._backend_idle_timer.setSingleShot(True)
         self._backend_idle_timer.timeout.connect(self._show_backend_idle_if_quiet)
+        self._backend_status = {}
 
         self.setWindowTitle(f"yt-transcriber v{APP_VERSION} — Studio GD LEX")
         self.setMinimumSize(1000, 860)
@@ -1009,22 +1127,70 @@ class MainWindow(QMainWindow):
         self._pulse_timer.stop()
 
     # ── Deps ──────────────────────────────────────────────────────────────────
+    def _resolve_backend_status(self):
+        missing = []
+        details = []
+        issues = []
+
+        if not SCRIPT_SH.exists():
+            missing.append("yt-transcriber.sh")
+            details.append("script pipeline mancante")
+
+        whisper_bin, bin_issues = resolve_whisper_bin()
+        issues.extend(bin_issues)
+        if whisper_bin is None:
+            missing.append("whisper-cli")
+            details.append("backend whisper-cli non configurato")
+
+        model_path, model_label, model_issues = resolve_whisper_model(self._whisper_model)
+        issues.extend(model_issues)
+        if model_path is None:
+            missing.append(model_label)
+            details.append(f"modello {model_label} non configurato")
+
+        return {
+            "ready": not missing,
+            "missing": missing,
+            "details": details,
+            "issues": issues,
+            "bin_path": whisper_bin,
+            "model_path": model_path,
+            "model_label": model_label,
+        }
+
+    def _backend_warning_message(self, status):
+        lines = []
+        missing = status.get("missing", [])
+        if missing:
+            lines.append(f"missing: {', '.join(missing)}")
+        if status.get("issues"):
+            lines.extend(status["issues"])
+        if missing:
+            lines.append("Configura whisper.cpp oppure imposta:")
+            lines.append(YT_TRANSCRIBER_WHISPER_BIN_ENV)
+            lines.append(YT_TRANSCRIBER_WHISPER_MODEL_ENV)
+        return "\n".join(lines)
+
     def _check_deps(self):
-        model_bin = Path.home() / f"whisper.cpp/models/ggml-{self._whisper_model}.bin"
-        missing = [n for n,p in [
-            ("yt-transcriber.sh",               SCRIPT_SH),
-            ("whisper-cli",                     WHISPER_BIN),
-            (f"ggml-{self._whisper_model}.bin", model_bin),
-        ] if not p.exists()]
-        if not missing:
+        status = self._resolve_backend_status()
+        self._backend_status = status
+        if status["ready"]:
             binfo  = _BACKEND.get("info","?")
             bspeed = "(GPU)" if _BACKEND.get("fast") else "(CPU)"
             self.dep_badge.setText(f"<> {binfo} {bspeed}")
             self.dep_badge.setStyleSheet(f"color:{WHITE};background:{GREEN_DARK};border:1px solid {GREEN_MID};border-radius:3px;padding:4px 12px;font-family:{FONT_MONO};")
+            tooltip = (
+                f"whisper-cli: {status['bin_path']}\n"
+                f"modello: {status['model_path']}"
+            )
+            self.dep_badge.setToolTip(tooltip)
         else:
-            self.dep_badge.setText(f"⚠  missing: {', '.join(missing)}")
+            warning_text = self._backend_warning_message(status)
+            self.dep_badge.setText(f"⚠  missing: {', '.join(status['missing'])}")
             self.dep_badge.setStyleSheet(f"color:{GOLD};background:#1A1000;border:1px solid {GOLD};border-radius:3px;padding:4px 12px;font-family:{FONT_MONO};")
-            self._log(f"⚠  Dipendenze mancanti: {', '.join(missing)}", GOLD)
+            self.dep_badge.setToolTip(warning_text)
+            self._log(f"⚠  {warning_text.replace(chr(10), ' | ')}", GOLD)
+        self._update_run_btn()
 
     # ── Slot UI ───────────────────────────────────────────────────────────────
     def _set_input_validity(self, widget, is_valid, has_text):
@@ -1087,7 +1253,16 @@ class MainWindow(QMainWindow):
             ok = self._is_supported_remote_url(t)
         else:
             ok = bool(self._local_file)
-        self.run_btn.setEnabled(ok)
+        backend_ready = self._backend_status.get("ready", False)
+        self.run_btn.setEnabled(ok and backend_ready)
+        if not backend_ready:
+            self.run_btn.setToolTip(self._backend_warning_message(self._backend_status))
+        elif self._mode == "youtube" and not ok:
+            self.run_btn.setToolTip("Inserisci un URL http/https valido.")
+        elif self._mode == "local" and not ok:
+            self.run_btn.setToolTip("Seleziona un file audio o video valido.")
+        else:
+            self.run_btn.setToolTip("Avvia la pipeline di trascrizione.")
         self._update_tray_state()
 
     def _on_fmt_changed(self, fmt, v):
@@ -1394,6 +1569,13 @@ class MainWindow(QMainWindow):
         if self.worker and self.worker.isRunning():
             return
 
+        if not self._backend_status.get("ready", False):
+            warning_text = self._backend_warning_message(self._backend_status)
+            self._log(f"⚠  {warning_text.replace(chr(10), ' | ')}", GOLD)
+            QMessageBox.warning(self, "Backend Whisper mancante", warning_text)
+            self._update_run_btn()
+            return
+
         if self._mode == "local" and not self._local_file:
             self._log("✗  Percorso file locale non valido.", RED)
             self._update_run_btn()
@@ -1447,7 +1629,9 @@ class MainWindow(QMainWindow):
         self.worker = PipelineWorker(
             url, title, out,
             self._lang, self._timestamps, self._burn_subs,
-            dict(self._formats), self._whisper_model, self._audio_normalize)
+            dict(self._formats), self._whisper_model, self._audio_normalize,
+            whisper_bin=self._backend_status.get("bin_path"),
+            whisper_model_path=self._backend_status.get("model_path"))
         self.worker.log_line.connect(self._on_log)
         self.worker.transcript_chunk.connect(self._on_transcript_chunk)
         self.worker.progress.connect(self._on_progress)

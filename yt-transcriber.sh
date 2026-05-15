@@ -9,8 +9,10 @@
 #   yt-dlp, ffmpeg, whisper.cpp (build-vulkan), node + docx, python3
 #
 # CONFIGURAZIONE (modifica le variabili qui sotto):
-#   WHISPER_BIN   percorso binario whisper-cli (build Vulkan)
-#   WHISPER_MODEL percorso modello ggml
+#   YT_TRANSCRIBER_WHISPER_BIN   override percorso whisper-cli
+#   YT_TRANSCRIBER_WHISPER_MODEL override percorso/file modello ggml
+#   WHISPER_BIN                  override legacy percorso whisper-cli
+#   WHISPER_MODEL                override legacy modello/path ggml
 #   WORK_DIR      cartella di lavoro temporanea
 #   OUTPUT_DIR    cartella output finale (default: ~/Trascrizioni)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -18,8 +20,10 @@
 set -euo pipefail
 
 # ── Configurazione ────────────────────────────────────────────────────────────
-WHISPER_BIN="${WHISPER_BIN:-$HOME/whisper.cpp/build-vulkan/bin/whisper-cli}"
-WHISPER_MODEL="${WHISPER_MODEL:-$HOME/whisper.cpp/models/ggml-medium.bin}"
+YT_TRANSCRIBER_WHISPER_BIN="${YT_TRANSCRIBER_WHISPER_BIN:-}"
+YT_TRANSCRIBER_WHISPER_MODEL="${YT_TRANSCRIBER_WHISPER_MODEL:-}"
+WHISPER_BIN="${WHISPER_BIN:-}"
+WHISPER_MODEL="${WHISPER_MODEL:-medium}"
 PIPELINE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK_DIR="${WORK_DIR:-/tmp/yt-transcriber_work}"
 OUTPUT_DIR="${3:-$HOME/Trascrizioni}"
@@ -58,6 +62,72 @@ resolve_model_name() {
   fi
 }
 
+resolve_whisper_bin() {
+  local candidate=""
+  if [[ -n "${YT_TRANSCRIBER_WHISPER_BIN:-}" ]]; then
+    candidate="${YT_TRANSCRIBER_WHISPER_BIN}"
+    [[ -x "$candidate" ]] || err "YT_TRANSCRIBER_WHISPER_BIN punta a un file ineseguibile o assente: $candidate"
+    echo "$candidate"
+    return
+  fi
+  if [[ -n "${WHISPER_BIN:-}" ]]; then
+    candidate="${WHISPER_BIN}"
+    [[ -x "$candidate" ]] || err "WHISPER_BIN punta a un file ineseguibile o assente: $candidate"
+    echo "$candidate"
+    return
+  fi
+  if command -v whisper-cli >/dev/null 2>&1; then
+    command -v whisper-cli
+    return
+  fi
+  for candidate in \
+    "$HOME/whisper.cpp/build-vulkan/bin/whisper-cli" \
+    "$HOME/whisper.cpp/build-cuda/bin/whisper-cli" \
+    "$HOME/whisper.cpp/build/bin/whisper-cli" \
+    "/usr/local/bin/whisper-cli" \
+    "/usr/bin/whisper-cli"; do
+    if [[ -x "$candidate" ]]; then
+      echo "$candidate"
+      return
+    fi
+  done
+  return 1
+}
+
+resolve_whisper_model_path() {
+  local model_input="${1:-}"
+  local candidate=""
+  if [[ -n "${YT_TRANSCRIBER_WHISPER_MODEL:-}" ]]; then
+    candidate="${YT_TRANSCRIBER_WHISPER_MODEL}"
+    [[ -f "$candidate" ]] || err "YT_TRANSCRIBER_WHISPER_MODEL punta a un file .bin inesistente: $candidate"
+    echo "$candidate"
+    return
+  fi
+  if [[ -n "${WHISPER_MODEL:-}" ]]; then
+    model_input="${WHISPER_MODEL}"
+  fi
+  if [[ -z "$model_input" ]]; then
+    model_input="medium"
+  fi
+  if [[ "$model_input" == */* || "$model_input" == *.bin ]]; then
+    candidate="$(resolve_model_bin "$model_input")"
+    [[ -f "$candidate" ]] || err "WHISPER_MODEL punta a un file .bin inesistente: $candidate"
+    echo "$candidate"
+    return
+  fi
+  for candidate in \
+    "$HOME/whisper.cpp/models/ggml-${model_input}.bin" \
+    "$HOME/.local/share/yt-transcriber/models/ggml-${model_input}.bin" \
+    "/usr/share/yt-transcriber/models/ggml-${model_input}.bin" \
+    "/usr/local/share/whisper.cpp/models/ggml-${model_input}.bin"; do
+    if [[ -f "$candidate" ]]; then
+      echo "$candidate"
+      return
+    fi
+  done
+  echo "$HOME/whisper.cpp/models/ggml-${model_input}.bin"
+}
+
 # ── Colori ────────────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 BLUE='\033[0;34m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
@@ -91,7 +161,9 @@ VARIABILI D'AMBIENTE:
   LOUDNORM_TP     Parametro avanzato loudnorm (default: -2)
   LOUDNORM_LRA    Parametro avanzato loudnorm (default: 11)
   WHISPER_LANG    Lingua Whisper (default: it)
-  WHISPER_BIN     Percorso whisper-cli
+  YT_TRANSCRIBER_WHISPER_BIN   Override percorso whisper-cli
+  YT_TRANSCRIBER_WHISPER_MODEL Override modello/path .bin
+  WHISPER_BIN     Override legacy percorso whisper-cli
   WHISPER_MODEL   Modello (small/medium/large-v3) o path .bin (default: medium)
 EOF
 }
@@ -159,21 +231,24 @@ watch_progress() {
 check_deps() {
   step "Verifica dipendenze"
   local ok=1
+  local whisper_bin_resolved=""
   for cmd in yt-dlp ffmpeg ffprobe node python3 bc; do
     if command -v "$cmd" &>/dev/null; then ok "$cmd"; else warn "$cmd non trovato"; ok=0; fi
   done
-  if [[ ! -x "$WHISPER_BIN" ]]; then
-    warn "whisper-cli non trovato: $WHISPER_BIN"
-    ok=0
+  if whisper_bin_resolved="$(resolve_whisper_bin 2>/dev/null)"; then
+    WHISPER_BIN="$whisper_bin_resolved"
+    ok "whisper-cli ($(basename "$(dirname "$WHISPER_BIN")"))"
   else
-    ok "whisper-cli (Vulkan)"
+    warn "whisper-cli non trovato"
+    ok=0
   fi
   local model_input
-  model_input="${WHISPER_MODEL:-medium}"
+  model_input="${YT_TRANSCRIBER_WHISPER_MODEL:-${WHISPER_MODEL:-medium}}"
   local check_model
-  check_model="$(resolve_model_bin "$model_input")"
+  check_model="$(resolve_whisper_model_path "$model_input")"
+  WHISPER_MODEL="$check_model"
   if [[ ! -f "$check_model" ]]; then
-    if [[ "$model_input" == */* || "$model_input" == *.bin ]]; then
+    if [[ -n "${YT_TRANSCRIBER_WHISPER_MODEL:-}" || "$model_input" == */* || "$model_input" == *.bin ]]; then
       warn "modello .bin esplicito non trovato: $check_model"
       ok=0
     else
@@ -341,17 +416,14 @@ main() {
   # - nome modello (es. medium): path standard + download automatico se assente
   # - path .bin avanzato: deve esistere, nessun download automatico
   local MODEL_BIN
-  MODEL_BIN="$(resolve_model_bin "$MODEL_INPUT")"
-  if [[ "$MODEL_INPUT" == */* || "$MODEL_INPUT" == *.bin ]]; then
-    [[ -f "$MODEL_BIN" ]] || err "WHISPER_MODEL punta a un file .bin inesistente: $MODEL_BIN"
-  else
-    if [[ ! -f "$MODEL_BIN" ]]; then
-      step "Download modello Whisper: ${MODEL_NAME}"
-      bash "$HOME/whisper.cpp/models/download-ggml-model.sh" "$MODEL_NAME" || \
-        err "Download modello ${MODEL_NAME} fallito"
-    fi
+  MODEL_BIN="$(resolve_whisper_model_path "$MODEL_INPUT")"
+  if [[ ! -f "$MODEL_BIN" && "$MODEL_INPUT" != */* && "$MODEL_INPUT" != *.bin && -z "${YT_TRANSCRIBER_WHISPER_MODEL:-}" ]]; then
+    step "Download modello Whisper: ${MODEL_NAME}"
+    bash "$HOME/whisper.cpp/models/download-ggml-model.sh" "$MODEL_NAME" || \
+      err "Download modello ${MODEL_NAME} fallito"
   fi
   WHISPER_MODEL="$MODEL_BIN"
+  WHISPER_BIN="$(resolve_whisper_bin)"
 
   # Rileva backend migliore disponibile
   local BACKEND_INFO
@@ -360,7 +432,7 @@ main() {
 
   # Controlla se usare whisper.cpp o python backend
   local USE_WHISPER_CPP=0
-  for bin_path in     "${WHISPER_BIN:-}"     "$HOME/whisper.cpp/build-vulkan/bin/whisper-cli"     "$HOME/whisper.cpp/build-cuda/bin/whisper-cli"     "$HOME/whisper.cpp/build/bin/whisper-cli"; do
+  for bin_path in "$WHISPER_BIN"; do
     if [[ -n "$bin_path" && -x "$bin_path" && -f "$WHISPER_MODEL" ]]; then
       WHISPER_BIN_ACTIVE="$bin_path"
       USE_WHISPER_CPP=1

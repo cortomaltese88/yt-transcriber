@@ -93,23 +93,62 @@ pip install PyQt6 --break-system-packages
 npm install
 ```
 
+## 3.1 Backend Whisper
+
+Il pacchetto `.deb` **non include** `whisper.cpp`.
+
+Il pacchetto `.deb` **non include** i modelli Whisper `.bin`.
+
+Per funzionare, `yt-transcriber` richiede:
+
+- un backend `whisper-cli` funzionante;
+- un modello Whisper `.bin` disponibile sul filesystem.
+
+L'installazione e la configurazione di `whisper.cpp` restano a carico dell'utente.
+
+### Ricerca automatica di `whisper-cli`
+
+La GUI e la pipeline cercano `whisper-cli` in questo ordine:
+
+1. variabile ambiente `YT_TRANSCRIBER_WHISPER_BIN`
+2. `whisper-cli` trovato nel `PATH`
+3. `~/whisper.cpp/build-vulkan/bin/whisper-cli`
+4. `~/whisper.cpp/build-cuda/bin/whisper-cli`
+5. `~/whisper.cpp/build/bin/whisper-cli`
+6. `/usr/local/bin/whisper-cli`
+7. `/usr/bin/whisper-cli`
+
+Per retrocompatibilità, la pipeline accetta anche `WHISPER_BIN`.
+
+### Ricerca automatica del modello Whisper
+
+La GUI e la pipeline cercano il modello selezionato (`ggml-medium.bin`, `ggml-small.bin`, `ggml-large-v3.bin`, ecc.) in questo ordine:
+
+1. variabile ambiente `YT_TRANSCRIBER_WHISPER_MODEL`
+2. `~/whisper.cpp/models/`
+3. `~/.local/share/yt-transcriber/models/`
+4. `/usr/share/yt-transcriber/models/`
+5. `/usr/local/share/whisper.cpp/models/`
+
+Per retrocompatibilità, la pipeline accetta anche `WHISPER_MODEL`.
+
+Se `whisper-cli` o il modello mancano, la GUI si avvia comunque ma lascia disabilitato `Avvia pipeline` e mostra un warning chiaro invece di andare in traceback.
+
+### Configurazione temporanea tramite variabili ambiente
+
+```bash
+export YT_TRANSCRIBER_WHISPER_BIN="$HOME/whisper.cpp/build-vulkan/bin/whisper-cli"
+export YT_TRANSCRIBER_WHISPER_MODEL="$HOME/whisper.cpp/models/ggml-medium.bin"
+yt-transcriber
+```
+
 ### Installazione di whisper.cpp
 
-Questo è il passaggio più complesso. whisper.cpp deve essere compilato manualmente e posizionato in `~/whisper.cpp/`.
-
-Il programma cerca i binari nei seguenti percorsi (in ordine di preferenza):
-
-| Backend | Percorso binario |
-|---|---|
-| GPU Vulkan (AMD/Intel) | `~/whisper.cpp/build-vulkan/bin/whisper-cli` |
-| GPU CUDA (NVIDIA) | `~/whisper.cpp/build-cuda/bin/whisper-cli` |
-| Solo CPU | `~/whisper.cpp/build/bin/whisper-cli` |
-
-I percorsi possono essere sovrascritti con variabili d'ambiente (`WHISPER_BIN_VULKAN`, `WHISPER_BIN_CUDA`, ecc.).
+Questo resta il passaggio più complesso. In uno scenario tipico `whisper.cpp` viene compilato manualmente e posizionato in `~/whisper.cpp/`.
 
 ### Download dei modelli Whisper
 
-I modelli vanno scaricati nella cartella `~/whisper.cpp/models/`. Tre opzioni disponibili:
+I modelli vanno scaricati separatamente. Una collocazione consigliata resta `~/whisper.cpp/models/`. Tre opzioni disponibili:
 
 | Modello | Dimensione | Qualità | Velocità |
 |---|---|---|---|
