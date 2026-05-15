@@ -100,6 +100,12 @@ for rabbit_frame in assets/matrix/white_rabbit_0.png \
   fi
 done
 
+if [[ -f assets/tray/yt-transcriber-tray.svg ]]; then
+  ok "Presenza asset: assets/tray/yt-transcriber-tray.svg"
+else
+  ko "Presenza asset: assets/tray/yt-transcriber-tray.svg"
+fi
+
 run_check "Pipeline audio: AUDIO_NORMALIZE presente" grep -Fq 'AUDIO_NORMALIZE' yt-transcriber.sh
 run_check "Pipeline audio: loudnorm presente" grep -Fq 'loudnorm' yt-transcriber.sh
 run_check "Pipeline audio: AUDIO_PREP_STATUS presente" grep -Fq 'AUDIO_PREP_STATUS' yt-transcriber.sh
@@ -124,6 +130,7 @@ run_check "GUI download: log Download video presente" grep -Fq 'Download video:'
 run_check "GUI fasi: preparazione audio presente" grep -Fq 'preparazione audio' yt-transcriber_gui.py
 run_check "GUI Matrix: WHITE_RABBIT presente" grep -Fq 'WHITE_RABBIT' yt-transcriber_gui.py
 run_check "GUI Matrix: assets/matrix presente" grep -Fq 'assets" / "matrix"' yt-transcriber_gui.py
+run_check "GUI Tray: yt-transcriber-tray.svg presente" grep -Fq 'yt-transcriber-tray.svg' yt-transcriber_gui.py
 run_check "Live transcript: TRANSCRIPT_LIVE presente in pipeline" grep -Fq 'TRANSCRIPT_LIVE' yt-transcriber.sh
 run_check "Live transcript: TRANSCRIPT_LIVE presente in GUI" grep -Fq 'TRANSCRIPT_LIVE' yt-transcriber_gui.py
 run_check "Live transcript: transcript_chunk presente in GUI" grep -Fq 'transcript_chunk' yt-transcriber_gui.py

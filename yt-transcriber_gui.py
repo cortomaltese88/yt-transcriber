@@ -14,11 +14,12 @@ from PyQt6.QtWidgets import (
     QLabel, QLineEdit, QPushButton, QTextEdit, QProgressBar,
     QFileDialog, QFrame, QSizePolicy, QMessageBox, QScrollArea,
     QTabWidget, QSplashScreen, QComboBox, QListWidget, QListWidgetItem, QMenu,
-    QStackedLayout
+    QStackedLayout, QSystemTrayIcon
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QRect
 from PyQt6.QtGui import (QFont, QTextCursor, QPalette, QColor,
-                          QPixmap, QPainter, QPen, QBrush, QLinearGradient)
+                          QPixmap, QPainter, QPen, QBrush, QLinearGradient,
+                          QAction, QIcon)
 
 # ── Versione ───────────────────────────────────────────────────────────────────
 APP_VERSION = "1.0.9"
@@ -632,7 +633,9 @@ class MainWindow(QMainWindow):
         self.setAcceptDrops(True)
         self._setup_style()
         self._build_ui()
+        self._setup_tray()
         self._check_deps()
+        self._update_tray_state()
 
     # ── Stile globale ─────────────────────────────────────────────────────────
     def _setup_style(self):
@@ -1074,6 +1077,7 @@ class MainWindow(QMainWindow):
     def _update_run_btn(self):
         if self.worker and self.worker.isRunning():
             self.run_btn.setEnabled(False)
+            self._update_tray_state()
             return
         if self._mode == "youtube":
             t = self.url_input.text().strip()
@@ -1081,6 +1085,7 @@ class MainWindow(QMainWindow):
         else:
             ok = bool(self._local_file)
         self.run_btn.setEnabled(ok)
+        self._update_tray_state()
 
     def _on_fmt_changed(self, fmt, v):
         self._formats[fmt] = v
@@ -1116,10 +1121,160 @@ class MainWindow(QMainWindow):
         self.transcript_view.clear()
         self._last_transcript_chunk = ""
 
+    def _app_icon(self):
+        for candidate in (
+            PIPELINE_DIR / "yt-transcriber.png",
+            PIPELINE_DIR / "yt-transcriber_512.png",
+            PIPELINE_DIR / "yt-transcriber.svg",
+        ):
+            if candidate.exists():
+                icon = QIcon(str(candidate))
+                if not icon.isNull():
+                    return icon
+        return QIcon.fromTheme("yt-transcriber")
+
+    def _tray_icon(self):
+        for candidate in (
+            PIPELINE_DIR / "assets" / "tray" / "yt-transcriber-tray.svg",
+        ):
+            if candidate.exists():
+                icon = QIcon(str(candidate))
+                if not icon.isNull():
+                    return icon
+        themed_icon = QIcon.fromTheme("yt-transcriber")
+        if not themed_icon.isNull():
+            return themed_icon
+        for candidate in (
+            PIPELINE_DIR / "yt-transcriber.svg",
+            PIPELINE_DIR / "yt-transcriber_512.png",
+            PIPELINE_DIR / "yt-transcriber.png",
+        ):
+            if candidate.exists():
+                icon = QIcon(str(candidate))
+                if not icon.isNull():
+                    return icon
+        return QIcon()
+
+    def _setup_tray(self):
+        self.tray_icon = None
+        self.tray_menu = None
+        self.tray_toggle_action = None
+        self.tray_run_action = None
+        self.tray_cancel_action = None
+        self.tray_open_output_action = None
+        self.tray_open_folder_action = None
+        self.tray_about_action = None
+        self.tray_exit_action = None
+
+        if not QSystemTrayIcon.isSystemTrayAvailable():
+            return
+
+        self.tray_icon = QSystemTrayIcon(self)
+        self.tray_icon.setIcon(self._tray_icon())
+        self.tray_icon.setToolTip("yt-transcriber — pronto")
+        self.tray_icon.activated.connect(self._on_tray_activated)
+
+        self.tray_menu = QMenu(self)
+        self.tray_menu.setStyleSheet(f"""
+            QMenu {{ background:{BG2}; color:{WHITE}; border:1px solid {BORDER};
+                     font-family:{FONT_MONO}; font-size:11px; }}
+            QMenu::item:selected {{ background:{GREEN_DARK}; color:{GREEN}; }}
+        """)
+        self.tray_toggle_action = QAction("Mostra/Nascondi finestra", self)
+        self.tray_run_action = QAction("Avvia pipeline", self)
+        self.tray_cancel_action = QAction("Annulla pipeline", self)
+        self.tray_open_folder_action = QAction("Apri cartella output", self)
+        self.tray_about_action = QAction("About", self)
+        self.tray_exit_action = QAction("Esci", self)
+
+        self.tray_toggle_action.triggered.connect(self._toggle_window_visibility)
+        self.tray_run_action.triggered.connect(self._run_if_ready)
+        self.tray_cancel_action.triggered.connect(self._cancel)
+        self.tray_open_folder_action.triggered.connect(self._open_output_folder)
+        self.tray_about_action.triggered.connect(self._show_about)
+        self.tray_exit_action.triggered.connect(self._quit_from_tray)
+
+        self.tray_menu.addAction(self.tray_toggle_action)
+        self.tray_menu.addAction(self.tray_run_action)
+        self.tray_menu.addAction(self.tray_cancel_action)
+        self.tray_menu.addSeparator()
+        self.tray_menu.addAction(self.tray_open_folder_action)
+        self.tray_menu.addSeparator()
+        self.tray_menu.addAction(self.tray_about_action)
+        self.tray_menu.addAction(self.tray_exit_action)
+
+        self.tray_icon.setContextMenu(self.tray_menu)
+        self.tray_icon.show()
+
+    def _toggle_window_visibility(self):
+        if self.isVisible() and not self.isMinimized():
+            self.hide()
+        else:
+            self.showNormal()
+            self.raise_()
+            self.activateWindow()
+
+    def _on_tray_activated(self, reason):
+        if reason in (
+            QSystemTrayIcon.ActivationReason.Trigger,
+            QSystemTrayIcon.ActivationReason.DoubleClick,
+        ):
+            self._toggle_window_visibility()
+
+    def _show_tray_message(self, title, message, icon=None):
+        if self.tray_icon is None:
+            return
+        try:
+            self.tray_icon.showMessage(
+                title,
+                message,
+                icon or QSystemTrayIcon.MessageIcon.Information,
+                3500,
+            )
+        except Exception:
+            pass
+
+    def _quit_from_tray(self):
+        if self.worker and self.worker.isRunning():
+            QMessageBox.warning(
+                self,
+                "Pipeline in corso",
+                "Pipeline in corso. Annullare la pipeline prima di uscire."
+            )
+            self.showNormal()
+            self.raise_()
+            self.activateWindow()
+            return
+        self.close()
+
+    def _update_tray_state(self):
+        if self.tray_icon is None:
+            return
+        running = bool(self.worker and self.worker.isRunning())
+        self.tray_run_action.setEnabled((not running) and self.run_btn.isEnabled())
+        self.tray_cancel_action.setEnabled(running)
+        self.tray_icon.setToolTip(
+            "yt-transcriber — pipeline in esecuzione" if running else "yt-transcriber — pronto"
+        )
+
     def _open_output(self):
         p = self.out_input.text() or str(DEFAULT_OUT)
         os.makedirs(p, exist_ok=True)
         subprocess.Popen(["xdg-open", p])
+
+    def _open_output_folder(self):
+        p = self.out_input.text().strip() or str(DEFAULT_OUT)
+        try:
+            target = Path(p).expanduser()
+        except Exception:
+            self._log("⚠  Cartella output non valida.", GOLD)
+            return
+        try:
+            target.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            self._log("⚠  Impossibile aprire la cartella output.", GOLD)
+            return
+        subprocess.Popen(["xdg-open", str(target)])
 
     def _open_claude(self):
         import webbrowser, shutil
@@ -1154,6 +1309,7 @@ class MainWindow(QMainWindow):
             self.worker.cancel()
         self.cancel_btn.setEnabled(False)
         self._log("⚠  Annullamento richiesto…", GOLD)
+        self._update_tray_state()
 
     # ── Log ───────────────────────────────────────────────────────────────────
     def _restart_backend_idle_timer(self):
@@ -1266,6 +1422,7 @@ class MainWindow(QMainWindow):
         self.worker.finished.connect(self._on_finished)
         self.worker.start()
         self._restart_backend_idle_timer()
+        self._update_tray_state()
 
     def _on_log(self, text, color):
         self._log(text, color)
@@ -1354,6 +1511,11 @@ class MainWindow(QMainWindow):
             self._add_to_history(url, title, output_dir)
             QMessageBox.information(self,"Done",
                 f"{msg}\n\nFile salvati in:\n{output_dir}")
+            self._show_tray_message(
+                "yt-transcriber",
+                "Pipeline completata",
+                QSystemTrayIcon.MessageIcon.Information,
+            )
         else:
             is_cancelled = msg == "Annullato."
             self.progress_bar.setFormat("  annullato" if is_cancelled else "  ✗  error")
@@ -1361,6 +1523,12 @@ class MainWindow(QMainWindow):
             self._log(f"⚠  {msg}" if is_cancelled else f"✗  {msg}", GOLD if is_cancelled else RED)
             if not is_cancelled:
                 QMessageBox.warning(self,"Error",msg)
+            self._show_tray_message(
+                "yt-transcriber",
+                "Pipeline annullata" if is_cancelled else "Errore pipeline",
+                QSystemTrayIcon.MessageIcon.Warning if is_cancelled else QSystemTrayIcon.MessageIcon.Critical,
+            )
+        self._update_tray_state()
 
     # ── Cronologia ────────────────────────────────────────────────────────────
     def _refresh_history(self):
