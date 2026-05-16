@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/branding/yt-transcriber-matrix-logo.png" alt="GD LEX yt-transcriber" width="220">
+</p>
+
 # yt-transcriber
 
 **Pipeline Trascrizione Audio/Video — Studio GD LEX**  
