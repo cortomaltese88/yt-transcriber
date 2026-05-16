@@ -29,7 +29,7 @@ licenze restano dei relativi autori e titolari.
 | Python | runtime generale del progetto | dipendenza runtime esterna, non inclusa nel repository | PSF License / stack di licenze open source | fonte ufficiale indicata; nel repository non è inclusa una copia del runtime |
 | PyQt6 | GUI desktop (`QtWidgets`, `QtCore`, `QtNetwork`, `QtGui`) | dipendenza runtime dichiarata nel `.deb` e importata dal codice | GPL v3 oppure Riverbank Commercial License | fonte ufficiale indicata; metadata Debian locale `python3-pyqt6`; metadata Python installati senza campo `License` |
 | Qt | framework sottostante a PyQt6 | runtime esterno richiesto indirettamente da PyQt6 | commerciale oppure open source `LGPLv3` / `GPLv3`; alcuni moduli possono essere `GPL-only` | fonte ufficiale indicata |
-| `faster-whisper` | backend Python di fallback | import opzionale a runtime, non dichiarato in `package.json` e non installato localmente qui | da verificare | nel repository è solo import opzionale; nessun metadata locale disponibile |
+| `faster-whisper` | backend Python di fallback | import opzionale a runtime, non dichiarato in `package.json` e non installato localmente qui | MIT, secondo il repository ufficiale; da riverificare se in futuro incluso materialmente nel pacchetto | nel repository è solo import opzionale; nessun metadata locale disponibile |
 | `openai-whisper` | ultimo backend Python di fallback | import opzionale a runtime, non installato localmente qui | MIT | fonte ufficiale indicata; nessun metadata locale disponibile |
 | `fpdf2` | fallback opzionale per output PDF | opzionale; citato nel README e nel codice shell come alternativa a `pandoc`; non installato localmente qui | LGPL-3.0 | fonte ufficiale indicata; nessun metadata locale disponibile |
 

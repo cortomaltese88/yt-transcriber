@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-VERSION="1.1.2"
+VERSION="1.1.3"
 PACKAGE="yt-transcriber"
 ARCH="amd64"
 MAINTAINER="Studio GD LEX <info@studiogdlex.it>"
@@ -48,6 +48,7 @@ fi
 # node_modules (docx) — se presenti
 if [[ -d "$SOURCE_DIR/node_modules" ]]; then
     cp -r "$SOURCE_DIR/node_modules" "$BUILD_DIR/usr/lib/${PACKAGE}/"
+    rm -f "$BUILD_DIR/usr/lib/${PACKAGE}/node_modules/.package-lock.json"
 fi
 
 # package.json
@@ -56,6 +57,7 @@ if [[ -f "$SOURCE_DIR/package.json" ]]; then
 fi
 
 chmod +x "$BUILD_DIR/usr/lib/${PACKAGE}/yt-transcriber.sh"
+chmod 644 "$BUILD_DIR/usr/lib/${PACKAGE}/make_docx_styled.js"
 
 # ── Launcher /usr/bin ─────────────────────────────────────────────────────────
 cat > "$BUILD_DIR/usr/bin/${PACKAGE}" << 'LAUNCHER'

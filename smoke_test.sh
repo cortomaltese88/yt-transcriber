@@ -26,6 +26,21 @@ run_check "Sintassi bash: yt-transcriber.sh" bash -n yt-transcriber.sh
 run_check "Sintassi bash: yt-transcriber" bash -n yt-transcriber
 run_check "Sintassi bash: build_deb.sh" bash -n build_deb.sh
 
+if [[ ! -e make_docx_styled.js ]]; then
+  ko "Permessi DOCX: make_docx_styled.js non esiste"
+elif [[ ! -r make_docx_styled.js ]]; then
+  ko "Permessi DOCX: make_docx_styled.js non e leggibile"
+else
+  docx_mode=$(stat -c '%a' make_docx_styled.js 2>/dev/null || true)
+  if [[ -z "$docx_mode" ]]; then
+    ko "Permessi DOCX: impossibile leggere i permessi di make_docx_styled.js"
+  elif (( (10#$docx_mode % 10) < 4 )); then
+    ko "Permessi DOCX: make_docx_styled.js deve essere almeno world-readable (permessi attuali: $docx_mode)"
+  else
+    ok "Permessi DOCX: make_docx_styled.js presente, leggibile e world-readable ($docx_mode)"
+  fi
+fi
+
 if python3 -m py_compile yt-transcriber_gui.py transcriber_backend.py set_lang_it.py >/dev/null 2>&1; then
   ok "Python py_compile: yt-transcriber_gui.py, transcriber_backend.py, set_lang_it.py"
 else
