@@ -41,3 +41,10 @@ venv/
 # Output locali
 Trascrizioni/
 output/
+
+# Internal project notes / assistant prompts
+STATO_PROGETTO_YT_TRANSCRIBER.md
+TODO_YT_TRANSCRIBER.md
+AGGIORNA_STATO_PROGETTO_E_TODO.md
+YT-TRANSCRIBER_PROMPT_REVISIONE.md
+skills/claude/
