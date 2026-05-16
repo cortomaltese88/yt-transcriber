@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-VERSION="1.1.1"
+VERSION="1.1.2"
 PACKAGE="yt-transcriber"
 ARCH="amd64"
 MAINTAINER="Studio GD LEX <info@studiogdlex.it>"
@@ -111,6 +111,17 @@ gzip -9 -c /dev/null > "$BUILD_DIR/usr/share/doc/${PACKAGE}/changelog.gz"
 # README
 if [[ -f "$SOURCE_DIR/README.md" ]]; then
     cp "$SOURCE_DIR/README.md" "$BUILD_DIR/usr/share/doc/${PACKAGE}/README.md"
+fi
+
+# LICENSE
+if [[ -f "$SOURCE_DIR/LICENSE" ]]; then
+    cp "$SOURCE_DIR/LICENSE" "$BUILD_DIR/usr/share/doc/${PACKAGE}/LICENSE"
+fi
+
+# Third-party licenses
+if [[ -f "$SOURCE_DIR/THIRD_PARTY_LICENSES.md" ]]; then
+    cp "$SOURCE_DIR/THIRD_PARTY_LICENSES.md" \
+        "$BUILD_DIR/usr/share/doc/${PACKAGE}/THIRD_PARTY_LICENSES.md"
 fi
 
 # ── DEBIAN/control ────────────────────────────────────────────────────────────

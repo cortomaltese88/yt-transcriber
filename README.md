@@ -5,7 +5,7 @@
 # yt-transcriber
 
 **Pipeline Trascrizione Audio/Video — Studio GD LEX**  
-Versione 1.1.1 · 2026 · Licenza: GPL-3.0-or-later
+Versione 1.1.2 · 2026 · Licenza: GPL-3.0-or-later
 
 ---
 
@@ -86,7 +86,7 @@ Nota prudente: il supporto delle sorgenti online resta dipendente da `yt-dlp`; i
 Un pacchetto già pronto è incluso nella cartella del progetto:
 
 ```bash
-sudo dpkg -i yt-transcriber_1.1.1_amd64.deb
+sudo dpkg -i yt-transcriber_1.1.2_amd64.deb
 sudo apt-get install -f   # risolve eventuali dipendenze mancanti
 ```
 
@@ -231,7 +231,7 @@ studio-tools/
 │
 ├── build_deb.sh              # Costruisce il pacchetto .deb installabile
 │
-├── yt-transcriber_1.1.1_amd64.deb   # Pacchetto installabile già pronto
+├── yt-transcriber_1.1.2_amd64.deb   # Pacchetto installabile già pronto
 │
 ├── package.json              # Dipendenze Node.js (libreria docx)
 └── node_modules/             # Librerie Node.js (generate da npm install)
