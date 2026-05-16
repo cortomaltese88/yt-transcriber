@@ -98,9 +98,12 @@ Upstream-Contact: Studio GD LEX <info@studiogdlex.it>
 
 Files: *
 Copyright: 2026 Studio GD LEX
-License: Proprietary
- This software is proprietary and confidential.
- All rights reserved. Studio GD LEX.
+License: GPL-3.0-or-later
+ This package is distributed under the terms of the GNU General Public
+ License, version 3 or any later version.
+ .
+ On Debian systems, the full text of the GNU General Public License
+ version 3 can be found in /usr/share/common-licenses/GPL-3.
 COPYRIGHT
 
 gzip -9 -c /dev/null > "$BUILD_DIR/usr/share/doc/${PACKAGE}/changelog.gz"

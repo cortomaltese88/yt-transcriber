@@ -1,7 +1,7 @@
 # yt-transcriber
 
 **Pipeline Trascrizione Audio/Video — Studio GD LEX**  
-Versione 1.1.1 · 2026 · Licenza: Proprietaria
+Versione 1.1.1 · 2026 · Licenza: GPL-3.0-or-later
 
 ---
 
@@ -17,7 +17,7 @@ Dato un URL video pubblico supportato da `yt-dlp` oppure un file sul proprio com
 4. pulisce e formatta il testo risultante;
 5. salva la trascrizione nei formati scelti: Word (.docx), PDF, testo semplice (.txt), sottotitoli (.srt / .vtt).
 
-È pensato per uso interno a **Studio GD LEX** e ottimizzato per la lingua italiana.
+È sviluppato da **Studio GD LEX** e ottimizzato per la lingua italiana.
 
 Per impostazione predefinita il comportamento resta conservativo: non viene applicata alcuna normalizzazione automatica e `VOLUME_BOOST=1.0` non aggiunge alcun filtro audio. Se serve, è possibile attivare opzionalmente `AUDIO_NORMALIZE=1` per usare `ffmpeg loudnorm` su audio troppo basso, troppo alto o irregolare. `VOLUME_BOOST` resta disponibile come opzione manuale e viene usato solo quando `AUDIO_NORMALIZE=0`.
 
@@ -257,5 +257,8 @@ studio-tools/
 
 **Autore:** Studio GD LEX  
 **Contatto:** info@studiogdlex.it  
-**Licenza:** Proprietaria — tutti i diritti riservati.  
-Questo software è riservato all'uso interno di Studio GD LEX.
+**Licenza del codice:** `GPL-3.0-or-later`. Il testo completo della licenza è disponibile nel file [LICENSE](LICENSE).  
+**Garanzie e responsabilità:** il software è fornito "as is", senza garanzie di accuratezza, completezza, idoneità a uno scopo specifico o assenza di errori. L'utente resta responsabile della verifica delle trascrizioni e dei file prodotti. L'autore non assume responsabilità per errori, malfunzionamenti, risultati incompleti o conseguenze dell'uso.  
+**Nome, marchio e identità visiva:** la licenza GPL applicata al codice non autorizza l'uso del nome, marchio, logo o identità visiva **STUDIO GD LEX** per presentare fork, versioni modificate o redistribuzioni come ufficiali, approvati o affiliati allo Studio.  
+**Affiliazioni di terze parti:** il progetto non è affiliato a OpenAI, Anthropic, YouTube, Google, `yt-dlp`, FFmpeg, `whisper.cpp` o ad altri strumenti e servizi di terze parti eventualmente citati.  
+**Componenti di terze parti:** vedi anche [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
