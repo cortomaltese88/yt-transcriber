@@ -1,0 +1,111 @@
+name: Release Debian Package
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-deb:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate tag ref and extract version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" != refs/tags/v* ]]; then
+            echo "Questo workflow puo' essere eseguito solo su tag v*."
+            exit 1
+          fi
+          version="${GITHUB_REF#refs/tags/v}"
+          if [[ -z "${version}" ]]; then
+            echo "Versione tag non valida."
+            exit 1
+          fi
+          echo "APP_VERSION=${version}" >> "$GITHUB_ENV"
+
+      - name: Verify version coherence
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${APP_VERSION}"
+          grep -Eq '^VERSION="'"${version}"'"$' build_deb.sh
+          grep -Eq '^APP_VERSION = "'"${version}"'"$' yt-transcriber_gui.py
+          grep -Fq '"version": "'"${version}"'"' package.json
+          grep -Fq '"version": "'"${version}"'"' package-lock.json
+          grep -Fq "Versione ${version}" README.md
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install apt dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends bc ffmpeg yt-dlp
+
+      - name: Install Node.js dependencies
+        run: npm ci
+
+      - name: Python bytecode check
+        run: python3 -m py_compile yt-transcriber_gui.py transcriber_backend.py
+
+      - name: Smoke test
+        run: ./smoke_test.sh
+
+      - name: Build Debian package
+        env:
+          APP_VERSION: ${{ env.APP_VERSION }}
+        run: bash build_deb.sh
+
+      - name: Verify Debian package exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "yt-transcriber_${APP_VERSION}_amd64.deb"
+
+      - name: Audit Debian package
+        shell: bash
+        run: |
+          set -euo pipefail
+          package="yt-transcriber_${APP_VERSION}_amd64.deb"
+          audit_root="/tmp/yt-transcriber-deb-audit/root"
+
+          dpkg-deb -f "${package}"
+          dpkg-deb -c "${package}"
+
+          rm -rf /tmp/yt-transcriber-deb-audit
+          mkdir -p "${audit_root}"
+          dpkg-deb -x "${package}" "${audit_root}"
+
+          test -f "${audit_root}/usr/share/doc/yt-transcriber/LICENSE"
+          test -f "${audit_root}/usr/share/doc/yt-transcriber/README.md"
+          test -f "${audit_root}/usr/share/doc/yt-transcriber/THIRD_PARTY_LICENSES.md"
+
+          docx_mode="$(stat -c '%a' "${audit_root}/usr/lib/yt-transcriber/make_docx_styled.js")"
+          if (( (10#${docx_mode} % 10) < 4 )); then
+            echo "make_docx_styled.js non e' world-readable: ${docx_mode}"
+            exit 1
+          fi
+
+          ! find "${audit_root}" -type f | grep -E 'STATO_PROGETTO_YT_TRANSCRIBER|TODO_YT_TRANSCRIBER|AGGIORNA_STATO_PROGETTO_E_TODO|YT-TRANSCRIBER_PROMPT_REVISIONE|yt-transcriber_SKILL_v107'
+          ! find "${audit_root}" -print | grep -F '/home/marco'
+          ! grep -RInIE 'smb://|UIL\.mp3|RGNR|fascicolo|cliente|PEC|codice fiscale|telefono|indirizzo' "${audit_root}"
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: yt-transcriber_${{ env.APP_VERSION }}_amd64.deb
+          overwrite_files: true

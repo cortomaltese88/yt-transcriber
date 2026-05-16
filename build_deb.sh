@@ -5,6 +5,9 @@
 set -euo pipefail
 
 VERSION="1.1.3"
+if [[ -n "${APP_VERSION:-}" ]]; then
+    VERSION="${APP_VERSION#v}"
+fi
 PACKAGE="yt-transcriber"
 ARCH="amd64"
 MAINTAINER="Studio GD LEX <info@studiogdlex.it>"
