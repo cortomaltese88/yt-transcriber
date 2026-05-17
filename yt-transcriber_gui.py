@@ -1133,7 +1133,7 @@ class MainWindow(QMainWindow):
         issues = []
         backend_type = _BACKEND.get("type", "none")
         backend_label = _BACKEND.get("info", "non rilevato")
-        uses_python_fallback = backend_type == "faster_whisper"
+        uses_python_fallback = backend_type in {"faster_whisper", "faster_whisper_venv"}
 
         if not SCRIPT_SH.exists():
             missing.append("yt-transcriber.sh")

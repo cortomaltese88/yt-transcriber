@@ -31,6 +31,7 @@ rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR/DEBIAN"
 mkdir -p "$BUILD_DIR/usr/bin"
 mkdir -p "$BUILD_DIR/usr/lib/${PACKAGE}"
+mkdir -p "$BUILD_DIR/usr/lib/${PACKAGE}/scripts"
 mkdir -p "$BUILD_DIR/usr/share/applications"
 mkdir -p "$BUILD_DIR/usr/share/icons/hicolor/256x256/apps"
 mkdir -p "$BUILD_DIR/usr/share/icons/hicolor/512x512/apps"
@@ -43,6 +44,7 @@ cp "$SOURCE_DIR/yt-transcriber.sh"       "$BUILD_DIR/usr/lib/${PACKAGE}/"
 cp "$SOURCE_DIR/transcriber_backend.py"  "$BUILD_DIR/usr/lib/${PACKAGE}/"
 cp "$SOURCE_DIR/make_docx_styled.js"     "$BUILD_DIR/usr/lib/${PACKAGE}/"
 cp "$SOURCE_DIR/set_lang_it.py"         "$BUILD_DIR/usr/lib/${PACKAGE}/"
+cp "$SOURCE_DIR/scripts/setup_faster_whisper_venv.sh" "$BUILD_DIR/usr/lib/${PACKAGE}/scripts/"
 
 if [[ -d "$SOURCE_DIR/assets" ]]; then
     cp -r "$SOURCE_DIR/assets" "$BUILD_DIR/usr/lib/${PACKAGE}/"
@@ -69,6 +71,8 @@ APP_DIR="/usr/lib/yt-transcriber"
 case "${1:-}" in
     --help|-h)
         exec bash "$APP_DIR/yt-transcriber.sh" --help ;;
+    --setup-faster-whisper)
+        exec bash "$APP_DIR/scripts/setup_faster_whisper_venv.sh" ;;
     http*|--local)
         exec bash "$APP_DIR/yt-transcriber.sh" "$@" ;;
     *)
@@ -76,6 +80,7 @@ case "${1:-}" in
 esac
 LAUNCHER
 chmod +x "$BUILD_DIR/usr/bin/${PACKAGE}"
+chmod 755 "$BUILD_DIR/usr/lib/${PACKAGE}/scripts/setup_faster_whisper_venv.sh"
 
 # ── Icone ─────────────────────────────────────────────────────────────────────
 if [[ -f "$SOURCE_DIR/yt-transcriber.png" ]]; then
@@ -139,7 +144,7 @@ Version: ${VERSION}
 Architecture: ${ARCH}
 Maintainer: ${MAINTAINER}
 Installed-Size: ${INSTALLED_SIZE}
-Depends: python3 (>= 3.10), python3-pyqt6, ffmpeg, nodejs (>= 16), yt-dlp, bc
+Depends: python3 (>= 3.10), python3-pyqt6, python3-venv, ffmpeg, nodejs (>= 16), yt-dlp, bc
 Suggests: pandoc, fpdf2
 Section: utils
 Priority: optional

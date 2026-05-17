@@ -59,8 +59,8 @@ Nota prudente: il supporto delle sorgenti online resta dipendente da `yt-dlp`; i
 | Node.js | 16+ | Generazione documenti Word |
 | yt-dlp | qualsiasi | Download da sorgenti online supportate |
 | bc | qualsiasi | Calcolo avanzamento nella shell |
-| whisper.cpp | compilato | Motore di trascrizione (vedi sezione installazione) |
-| Modello Whisper | — | File `.bin` da scaricare separatamente |
+| whisper.cpp | compilato | Motore di trascrizione preferito (vedi sezione installazione) |
+| Modello Whisper | — | File `.bin` richiesto se si usa whisper.cpp |
 
 ### Opzionali
 
@@ -98,7 +98,9 @@ Installare manualmente le dipendenze Python e Node.js, poi avviare direttamente 
 
 ```bash
 # Dipendenze Python
-pip install PyQt6 --break-system-packages
+python3 -m venv .venv
+. .venv/bin/activate
+pip install PyQt6
 
 # Dipendenze Node.js (già presenti in node_modules/)
 # Se la cartella node_modules mancasse o andasse rigenerata localmente:
@@ -113,14 +115,36 @@ Il pacchetto `.deb` **non include** i modelli Whisper `.bin`.
 
 Per funzionare, `yt-transcriber` richiede:
 
-- un backend `whisper-cli` funzionante;
-- un modello Whisper `.bin` disponibile sul filesystem.
+- `whisper.cpp` con modello `.bin` disponibile sul filesystem;
+- oppure `faster-whisper` disponibile come pacchetto Python di sistema o nel venv utente dedicato.
 
 L'installazione e la configurazione di `whisper.cpp` restano a carico dell'utente.
 
 Per i file locali `yt-dlp` non è necessario. Per URL video / sorgenti online, `yt-dlp` resta invece necessario.
 
-Se `whisper.cpp` non è disponibile, la pipeline shell può usare un backend Python già installato basato su `faster-whisper`, ma il backend di trascrizione resta comunque esterno al pacchetto `.deb`.
+Se `whisper.cpp` non è disponibile, la pipeline shell può usare un backend Python già installato basato su `faster-whisper`, incluso un venv utente dedicato, ma il backend di trascrizione resta comunque esterno al pacchetto `.deb`.
+
+### Configurazione opzionale faster-whisper in venv utente
+
+Per evitare modifiche al Python di sistema, `yt-transcriber` può usare un venv utente dedicato in:
+
+```text
+~/.local/share/yt-transcriber/venv
+```
+
+Lo script di setup non richiede `sudo` e non usa `--break-system-packages`.
+
+Da repository sorgente:
+
+```bash
+bash scripts/setup_faster_whisper_venv.sh
+```
+
+Da pacchetto `.deb` installato:
+
+```bash
+yt-transcriber --setup-faster-whisper
+```
 
 ### Ricerca automatica di `whisper-cli`
 
@@ -234,6 +258,7 @@ yt-transcriber/
 ├── set_lang_it.py            # Imposta la lingua italiana nei file .docx prodotti
 │
 ├── build_deb.sh              # Costruisce il pacchetto .deb installabile
+├── scripts/setup_faster_whisper_venv.sh  # Setup opzionale del venv utente faster-whisper
 │
 ├── yt-transcriber_<version>_amd64.deb   # Pacchetto installabile generato per una release
 │

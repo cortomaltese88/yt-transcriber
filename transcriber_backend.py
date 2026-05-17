@@ -22,6 +22,8 @@ from pathlib import Path
 IS_WINDOWS = platform.system() == "Windows"
 IS_LINUX   = platform.system() == "Linux"
 HOME       = Path.home()
+USER_VENV_DIR = HOME / ".local/share/yt-transcriber/venv"
+USER_VENV_PYTHON = USER_VENV_DIR / ("Scripts/python.exe" if IS_WINDOWS else "bin/python")
 
 # Percorsi whisper.cpp — personalizzabili via env
 WHISPER_MODEL = Path(os.environ.get(
@@ -46,6 +48,20 @@ WHISPER_BINS = {
         (".exe" if IS_WINDOWS else "")
     )),
 }
+
+
+def _venv_has_module(python_path: Path, module_name: str) -> bool:
+    """Verifica se un interpreter Python alternativo importa un modulo."""
+    if not python_path.exists():
+        return False
+    try:
+        r = subprocess.run(
+            [str(python_path), "-c", f"import {module_name}"],
+            capture_output=True, timeout=8
+        )
+        return r.returncode == 0
+    except Exception:
+        return False
 
 
 # ── Rilevamento backend ────────────────────────────────────────────────────────
@@ -100,7 +116,18 @@ def detect_backend() -> dict:
     except ImportError:
         pass
 
-    # 5. openai-whisper
+    # 5. faster-whisper nel venv utente
+    if _venv_has_module(USER_VENV_PYTHON, "faster_whisper"):
+        return {
+            "type":   "faster_whisper_venv",
+            "bin":    None,
+            "model":  None,
+            "python": USER_VENV_PYTHON,
+            "info":   "faster-whisper (venv utente)",
+            "fast":   False,
+        }
+
+    # 6. openai-whisper
     try:
         import whisper
         return {
@@ -162,6 +189,11 @@ def transcribe(
         return _transcribe_faster_whisper(
             audio_path, output_srt, lang,
             progress_callback, log_callback
+        )
+    elif btype == "faster_whisper_venv":
+        return _transcribe_faster_whisper_venv(
+            audio_path, output_srt, lang,
+            backend, progress_callback, log_callback
         )
     elif btype == "openai_whisper":
         return _transcribe_openai_whisper(
@@ -257,6 +289,91 @@ def _transcribe_faster_whisper(audio_path, output_srt, lang,
         return False
 
 
+def _transcribe_faster_whisper_venv(audio_path, output_srt, lang,
+                                     backend, progress_cb, log_cb):
+    python_path = Path(backend.get("python", USER_VENV_PYTHON))
+    if not python_path.exists():
+        if log_cb:
+            log_cb("✗  faster-whisper venv: interpreter non trovato.", "#FF6B6B")
+        return False
+
+    script = r"""
+import sys
+from faster_whisper import WhisperModel
+
+audio_path, output_srt, lang = sys.argv[1], sys.argv[2], sys.argv[3]
+detect_lang = None if lang == "auto" else lang
+model = WhisperModel("medium", device="cpu", compute_type="int8")
+segments, info = model.transcribe(audio_path, language=detect_lang)
+print(f"FWINFO:language={info.language};prob={info.language_probability:.4f};duration={info.duration}", flush=True)
+
+def fmt_ts(seconds):
+    ms = int((seconds % 1) * 1000)
+    s = int(seconds)
+    m, s = divmod(s, 60)
+    h, m = divmod(m, 60)
+    return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
+
+lines = []
+for i, seg in enumerate(segments, start=1):
+    lines.append(f"{i}\n{fmt_ts(seg.start)} --> {fmt_ts(seg.end)}\n{seg.text.strip()}\n")
+    print(f"FWSEG:{seg.end:.3f}:{seg.text.strip()}", flush=True)
+
+with open(output_srt, "w", encoding="utf-8") as f:
+    f.write("\n".join(lines))
+"""
+
+    try:
+        proc = subprocess.Popen(
+            [str(python_path), "-c", script, audio_path, output_srt, lang or "it"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+    except Exception as e:
+        if log_cb:
+            log_cb(f"✗  faster-whisper venv: {e}", "#FF6B6B")
+        return False
+
+    total = None
+    for line in proc.stdout:
+        line = line.rstrip()
+        if not line:
+            continue
+        if line.startswith("FWINFO:"):
+            if log_cb:
+                log_cb("⚙  Caricamento modello faster-whisper (venv utente)…", "#90EE90")
+            parts = dict(
+                item.split("=", 1) for item in line[7:].split(";") if "=" in item
+            )
+            total = float(parts.get("duration", "0") or "0")
+            if log_cb and parts.get("language"):
+                prob = float(parts.get("prob", "0") or "0")
+                log_cb(
+                    f"⚙  Lingua rilevata: {parts['language']} ({prob:.0%})",
+                    "#90EE90",
+                )
+            continue
+        if line.startswith("FWSEG:"):
+            _, end_raw, text = line.split(":", 2)
+            if progress_cb and total:
+                pct = min(int(float(end_raw) * 100 / total), 99)
+                progress_cb(pct, "--:--", "")
+            continue
+        if log_cb:
+            log_cb(line, "#90EE90")
+
+    proc.wait()
+    if proc.returncode == 0 and Path(output_srt).exists():
+        if progress_cb:
+            progress_cb(100, "00:00", "")
+        return True
+    if log_cb:
+        log_cb("✗  faster-whisper venv: trascrizione fallita.", "#FF6B6B")
+    return False
+
+
 def _transcribe_openai_whisper(audio_path, output_srt, lang,
                                 progress_cb, log_cb):
     try:
@@ -306,11 +423,12 @@ def _get_duration(audio_path: str) -> float:
 
 # ── Install helper ────────────────────────────────────────────────────────────
 def install_faster_whisper():
-    """Installa faster-whisper come fallback."""
-    subprocess.run([
-        sys.executable, "-m", "pip", "install",
-        "faster-whisper", "--break-system-packages", "-q"
-    ])
+    """Helper legacy: indirizza al setup in venv utente."""
+    script_path = Path(__file__).resolve().parent / "scripts" / "setup_faster_whisper_venv.sh"
+    if script_path.exists():
+        subprocess.run(["bash", str(script_path)], check=False)
+    else:
+        print("Setup faster-whisper non disponibile: script mancante.", file=sys.stderr)
 
 
 # ── CLI diagnostica ───────────────────────────────────────────────────────────
@@ -326,6 +444,8 @@ if __name__ == "__main__":
         print(f"  Binario:   {backend['bin']}")
     if backend['model']:
         print(f"  Modello:   {backend['model']}")
+    if backend.get('python'):
+        print(f"  Python:    {backend['python']}")
     print(f"{'='*50}\n")
 
     if backend['type'] == 'none':

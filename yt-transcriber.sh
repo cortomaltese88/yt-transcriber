@@ -24,6 +24,8 @@ YT_TRANSCRIBER_WHISPER_BIN="${YT_TRANSCRIBER_WHISPER_BIN:-}"
 YT_TRANSCRIBER_WHISPER_MODEL="${YT_TRANSCRIBER_WHISPER_MODEL:-}"
 WHISPER_BIN="${WHISPER_BIN:-}"
 WHISPER_MODEL="${WHISPER_MODEL:-medium}"
+YT_TRANSCRIBER_USER_VENV="${YT_TRANSCRIBER_USER_VENV:-$HOME/.local/share/yt-transcriber/venv}"
+YT_TRANSCRIBER_USER_VENV_PYTHON="${YT_TRANSCRIBER_USER_VENV_PYTHON:-$YT_TRANSCRIBER_USER_VENV/bin/python}"
 PIPELINE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK_DIR="${WORK_DIR:-/tmp/yt-transcriber_work}"
 OUTPUT_DIR="${3:-$HOME/Trascrizioni}"
@@ -33,6 +35,8 @@ AUDIO_NORMALIZE="${AUDIO_NORMALIZE:-0}"
 LOUDNORM_I="${LOUDNORM_I:--20}"
 LOUDNORM_TP="${LOUDNORM_TP:--2}"
 LOUDNORM_LRA="${LOUDNORM_LRA:-11}"
+PYTHON_BACKEND_LABEL="${PYTHON_BACKEND_LABEL:-}"
+PYTHON_BACKEND_PYTHON="${PYTHON_BACKEND_PYTHON:-}"
 
 resolve_model_bin() {
   local model_input="${1:-}"
@@ -129,14 +133,29 @@ resolve_whisper_model_path() {
 }
 
 detect_python_backend() {
-  python3 - <<'PYEOF'
+  python3 - "$YT_TRANSCRIBER_USER_VENV_PYTHON" <<'PYEOF'
 import importlib.util
+import subprocess
+import sys
+from pathlib import Path
+
+venv_python = Path(sys.argv[1])
 
 if importlib.util.find_spec("faster_whisper") is not None:
-    print("faster-whisper")
+    print("faster-whisper|python3")
     raise SystemExit(0)
 
-print("none")
+if venv_python.exists():
+    check = subprocess.run(
+        [str(venv_python), "-c", "import faster_whisper"],
+        capture_output=True,
+        timeout=8,
+    )
+    if check.returncode == 0:
+        print(f"faster-whisper (venv utente)|{venv_python}")
+        raise SystemExit(0)
+
+print("none|")
 PYEOF
 }
 
@@ -246,6 +265,8 @@ check_deps() {
   local ok=1
   local whisper_bin_resolved=""
   local python_backend=""
+  local python_backend_label=""
+  local python_backend_python=""
 
   for cmd in ffmpeg ffprobe node python3 bc; do
     if command -v "$cmd" &>/dev/null; then ok "$cmd"; else warn "$cmd non trovato"; ok=0; fi
@@ -271,11 +292,15 @@ check_deps() {
     ok "whisper-cli ($(basename "$(dirname "$WHISPER_BIN")"))"
   else
     python_backend="$(detect_python_backend 2>/dev/null || true)"
-    if [[ -n "$python_backend" && "$python_backend" != "none" ]]; then
-      ok "backend Python fallback: $python_backend"
+    python_backend_label="${python_backend%%|*}"
+    python_backend_python="${python_backend#*|}"
+    if [[ -n "$python_backend_label" && "$python_backend_label" != "none" ]]; then
+      PYTHON_BACKEND_LABEL="$python_backend_label"
+      PYTHON_BACKEND_PYTHON="${python_backend_python:-python3}"
+      ok "backend Python fallback: $python_backend_label"
     else
       warn "whisper-cli non trovato"
-      warn "nessun backend Python fallback trovato (faster-whisper)"
+      warn "nessun backend Python fallback trovato (faster-whisper di sistema o venv utente)"
       ok=0
     fi
   fi
@@ -299,7 +324,7 @@ check_deps() {
     ok "modello ggml non richiesto: verrà usato il backend Python fallback"
   fi
   if [[ $ok -eq 0 ]]; then
-    err "Dipendenze mancanti. Per proseguire configura whisper.cpp oppure installa manualmente faster-whisper."
+    err "Dipendenze mancanti. Per proseguire configura whisper.cpp oppure installa manualmente faster-whisper nel venv utente."
   fi
 }
 
@@ -531,7 +556,8 @@ main() {
   else
     # ── Python backend (faster-whisper / openai-whisper) ─────────────────────
     warn "whisper.cpp non trovato — uso backend Python (più lento)"
-    PIPELINE_DIR_PY="$PIPELINE_DIR" python3 - "$loud_audio" "$srt_file" "$LANG" << 'PYEOF'
+    local fallback_python="${PYTHON_BACKEND_PYTHON:-python3}"
+    PIPELINE_DIR_PY="$PIPELINE_DIR" "$fallback_python" - "$loud_audio" "$srt_file" "$LANG" << 'PYEOF'
 import sys
 import os
 sys.path.insert(0, os.environ["PIPELINE_DIR_PY"])
@@ -548,7 +574,7 @@ try:
     sys.exit(0 if ok else 1)
 except ImportError:
     print("ERRORE: whisper.cpp non disponibile e backend Python non importabile.", file=sys.stderr)
-    print("Installa manualmente faster-whisper oppure configura whisper.cpp.", file=sys.stderr)
+    print("Installa manualmente faster-whisper nel venv utente oppure configura whisper.cpp.", file=sys.stderr)
     sys.exit(1)
 PYEOF
     [[ $? -ne 0 ]] && err "Trascrizione Python fallita"
@@ -735,7 +761,7 @@ try:
                     pdf.multi_cell(0, 6, line.encode('latin-1','replace').decode('latin-1'))
     pdf.output(sys.argv[2])
 except ImportError:
-    print("fpdf2 non installato — installa con: pip install fpdf2 --break-system-packages")
+    print("fpdf2 non installato — installalo in un ambiente virtuale Python dedicato.")
 PDFEOF
     fi
     [[ -f "$out_pdf" ]] && ok ".pdf generato" || warn ".pdf: installa pandoc o fpdf2"
