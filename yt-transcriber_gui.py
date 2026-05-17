@@ -1131,6 +1131,9 @@ class MainWindow(QMainWindow):
         missing = []
         details = []
         issues = []
+        backend_type = _BACKEND.get("type", "none")
+        backend_label = _BACKEND.get("info", "non rilevato")
+        uses_python_fallback = backend_type == "faster_whisper"
 
         if not SCRIPT_SH.exists():
             missing.append("yt-transcriber.sh")
@@ -1138,15 +1141,18 @@ class MainWindow(QMainWindow):
 
         whisper_bin, bin_issues = resolve_whisper_bin()
         issues.extend(bin_issues)
-        if whisper_bin is None:
+        if whisper_bin is None and not uses_python_fallback:
             missing.append("whisper-cli")
             details.append("backend whisper-cli non configurato")
 
         model_path, model_label, model_issues = resolve_whisper_model(self._whisper_model)
         issues.extend(model_issues)
-        if model_path is None:
+        if model_path is None and not uses_python_fallback:
             missing.append(model_label)
             details.append(f"modello {model_label} non configurato")
+
+        if uses_python_fallback:
+            details.append("fallback Python faster-whisper disponibile")
 
         return {
             "ready": not missing,
@@ -1156,17 +1162,25 @@ class MainWindow(QMainWindow):
             "bin_path": whisper_bin,
             "model_path": model_path,
             "model_label": model_label,
+            "backend_type": backend_type,
+            "backend_label": backend_label,
+            "uses_python_fallback": uses_python_fallback,
         }
 
     def _backend_warning_message(self, status):
         lines = []
         missing = status.get("missing", [])
+        if status.get("uses_python_fallback"):
+            lines.append(f"Fallback Python disponibile: {status.get('backend_label', 'faster-whisper')}")
+            lines.append("whisper.cpp non configurato: verra' usato faster-whisper")
+            return "\n".join(lines)
         if missing:
             lines.append(f"missing: {', '.join(missing)}")
         if status.get("issues"):
             lines.extend(status["issues"])
         if missing:
-            lines.append("Configura whisper.cpp oppure imposta:")
+            lines.append("Configura whisper.cpp oppure installa faster-whisper.")
+            lines.append("In alternativa imposta:")
             lines.append(YT_TRANSCRIBER_WHISPER_BIN_ENV)
             lines.append(YT_TRANSCRIBER_WHISPER_MODEL_ENV)
         return "\n".join(lines)
@@ -1175,14 +1189,22 @@ class MainWindow(QMainWindow):
         status = self._resolve_backend_status()
         self._backend_status = status
         if status["ready"]:
-            binfo  = _BACKEND.get("info","?")
-            bspeed = "(GPU)" if _BACKEND.get("fast") else "(CPU)"
-            self.dep_badge.setText(f"<> {binfo} {bspeed}")
-            self.dep_badge.setStyleSheet(f"color:{WHITE};background:{GREEN_DARK};border:1px solid {GREEN_MID};border-radius:3px;padding:4px 12px;font-family:{FONT_MONO};")
-            tooltip = (
-                f"whisper-cli: {status['bin_path']}\n"
-                f"modello: {status['model_path']}"
-            )
+            if status.get("uses_python_fallback"):
+                self.dep_badge.setText(f"<> Backend Python: {status['backend_label']}")
+                self.dep_badge.setStyleSheet(f"color:{WHITE};background:{GREEN_DARK};border:1px solid {GREEN_MID};border-radius:3px;padding:4px 12px;font-family:{FONT_MONO};")
+                tooltip = (
+                    f"backend: {status['backend_label']}\n"
+                    "whisper.cpp non configurato: verra' usato faster-whisper"
+                )
+            else:
+                binfo  = _BACKEND.get("info","?")
+                bspeed = "(GPU)" if _BACKEND.get("fast") else "(CPU)"
+                self.dep_badge.setText(f"<> {binfo} {bspeed}")
+                self.dep_badge.setStyleSheet(f"color:{WHITE};background:{GREEN_DARK};border:1px solid {GREEN_MID};border-radius:3px;padding:4px 12px;font-family:{FONT_MONO};")
+                tooltip = (
+                    f"whisper-cli: {status['bin_path']}\n"
+                    f"modello: {status['model_path']}"
+                )
             self.dep_badge.setToolTip(tooltip)
         else:
             warning_text = self._backend_warning_message(status)

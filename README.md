@@ -148,7 +148,7 @@ La GUI e la pipeline cercano il modello selezionato (`ggml-medium.bin`, `ggml-sm
 
 Per retrocompatibilità, la pipeline accetta anche `WHISPER_MODEL`.
 
-Se `whisper-cli` o il modello mancano, la GUI si avvia comunque ma lascia disabilitato `Avvia pipeline` e mostra un warning chiaro invece di andare in traceback.
+La GUI abilita l'avvio se trova `whisper.cpp` configurato oppure, in alternativa, un fallback Python `faster-whisper` disponibile; in caso contrario lascia disabilitato `Avvia pipeline` e mostra un warning chiaro invece di andare in traceback.
 
 ### Configurazione temporanea tramite variabili ambiente
 
