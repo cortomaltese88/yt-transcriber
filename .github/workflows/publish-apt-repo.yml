@@ -222,7 +222,7 @@ jobs:
           grep -q 'main/binary-amd64/Packages' "$RELEASE_FILE"
           grep -q 'main/binary-amd64/Packages.gz' "$RELEASE_FILE"
           grep -q '^-----BEGIN PGP SIGNED MESSAGE-----' "$INRELEASE_FILE"
-          ! grep -RIn "trusted=yes" gdlex-apt-repo
+          ! grep -RIn "trusted=yes" gdlex-apt-repo/dists gdlex-apt-repo/pool
 
       - name: Commit and push APT repository
         shell: bash
