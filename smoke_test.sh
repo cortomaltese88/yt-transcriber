@@ -144,7 +144,8 @@ run_check "GUI->env: YT_TRANSCRIBER_WHISPER_MODEL presente" grep -Fq 'YT_TRANSCR
 run_check "GUI: AUDIO_PREP_STATUS presente" grep -Fq 'AUDIO_PREP_STATUS' yt-transcriber_gui.py
 run_check "GUI Whisper: resolve_whisper_bin presente" grep -Fq 'def resolve_whisper_bin' yt-transcriber_gui.py
 run_check "GUI Whisper: resolve_whisper_model presente" grep -Fq 'def resolve_whisper_model' yt-transcriber_gui.py
-run_check "GUI Whisper: warning config env presente" grep -Fq 'Configura whisper.cpp oppure imposta:' yt-transcriber_gui.py
+run_check "GUI Whisper: fallback faster-whisper presente" grep -Fq 'Fallback Python disponibile:' yt-transcriber_gui.py
+run_check "GUI Whisper: warning backend mancante presente" grep -Fq 'Configura whisper.cpp oppure installa faster-whisper.' yt-transcriber_gui.py
 run_check "GUI Whisper: run button bloccato senza backend" grep -Fq 'self.run_btn.setEnabled(ok and backend_ready)' yt-transcriber_gui.py
 run_check "GUI: toggle Normalizza audio presente" grep -Fq 'Normalizza audio' yt-transcriber_gui.py
 run_check "GUI file locale: campo editabile/incollabile" grep -Fq 'self.file_input = MatrixInput("Seleziona un file audio o video…")' yt-transcriber_gui.py
