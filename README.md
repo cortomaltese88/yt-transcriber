@@ -101,8 +101,8 @@ Installare manualmente le dipendenze Python e Node.js, poi avviare direttamente 
 pip install PyQt6 --break-system-packages
 
 # Dipendenze Node.js (già presenti in node_modules/)
-# Se la cartella node_modules mancasse:
-npm install
+# Se la cartella node_modules mancasse o andasse rigenerata localmente:
+npm ci
 ```
 
 ## 3.1 Backend Whisper
@@ -213,7 +213,7 @@ Mostra quale motore di trascrizione è attivo (GPU Vulkan, CUDA, CPU, o fallback
 ## 5. Struttura dei file principali
 
 ```
-studio-tools/
+yt-transcriber/
 │
 ├── yt-transcriber_gui.py     # Interfaccia grafica (PyQt6)
 │                             # Avvia la pipeline, mostra log e progresso
