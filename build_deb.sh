@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-VERSION="1.1.3"
+VERSION="1.1.4"
 if [[ -n "${APP_VERSION:-}" ]]; then
     VERSION="${APP_VERSION#v}"
 fi
