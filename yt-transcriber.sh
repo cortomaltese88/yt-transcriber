@@ -26,6 +26,7 @@ WHISPER_BIN="${WHISPER_BIN:-}"
 WHISPER_MODEL="${WHISPER_MODEL:-medium}"
 YT_TRANSCRIBER_USER_VENV="${YT_TRANSCRIBER_USER_VENV:-$HOME/.local/share/yt-transcriber/venv}"
 YT_TRANSCRIBER_USER_VENV_PYTHON="${YT_TRANSCRIBER_USER_VENV_PYTHON:-$YT_TRANSCRIBER_USER_VENV/bin/python}"
+YT_TRANSCRIBER_APP_WHISPER_DIR="${YT_TRANSCRIBER_APP_WHISPER_DIR:-$HOME/.local/share/yt-transcriber/whisper.cpp}"
 PIPELINE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK_DIR="${WORK_DIR:-/tmp/yt-transcriber_work}"
 OUTPUT_DIR="${3:-$HOME/Trascrizioni}"
@@ -88,6 +89,7 @@ resolve_whisper_bin() {
     "$HOME/whisper.cpp/build-vulkan/bin/whisper-cli" \
     "$HOME/whisper.cpp/build-cuda/bin/whisper-cli" \
     "$HOME/whisper.cpp/build/bin/whisper-cli" \
+    "$YT_TRANSCRIBER_APP_WHISPER_DIR/build/bin/whisper-cli" \
     "/usr/local/bin/whisper-cli" \
     "/usr/bin/whisper-cli"; do
     if [[ -x "$candidate" ]]; then
@@ -122,6 +124,7 @@ resolve_whisper_model_path() {
   for candidate in \
     "$HOME/whisper.cpp/models/ggml-${model_input}.bin" \
     "$HOME/.local/share/yt-transcriber/models/ggml-${model_input}.bin" \
+    "$YT_TRANSCRIBER_APP_WHISPER_DIR/models/ggml-${model_input}.bin" \
     "/usr/share/yt-transcriber/models/ggml-${model_input}.bin" \
     "/usr/local/share/whisper.cpp/models/ggml-${model_input}.bin"; do
     if [[ -f "$candidate" ]]; then
@@ -130,6 +133,19 @@ resolve_whisper_model_path() {
     fi
   done
   echo "$HOME/whisper.cpp/models/ggml-${model_input}.bin"
+}
+
+resolve_whisper_download_script() {
+  local candidate=""
+  for candidate in \
+    "$HOME/whisper.cpp/models/download-ggml-model.sh" \
+    "$YT_TRANSCRIBER_APP_WHISPER_DIR/models/download-ggml-model.sh"; do
+    if [[ -f "$candidate" ]]; then
+      echo "$candidate"
+      return
+    fi
+  done
+  return 1
 }
 
 detect_python_backend() {
@@ -488,8 +504,9 @@ main() {
     MODEL_BIN="$(resolve_whisper_model_path "$MODEL_INPUT")"
     if [[ ! -f "$MODEL_BIN" && "$MODEL_INPUT" != */* && "$MODEL_INPUT" != *.bin && -z "${YT_TRANSCRIBER_WHISPER_MODEL:-}" ]]; then
       step "Download modello Whisper: ${MODEL_NAME}"
-      bash "$HOME/whisper.cpp/models/download-ggml-model.sh" "$MODEL_NAME" || \
-        err "Download modello ${MODEL_NAME} fallito"
+      local DOWNLOAD_SCRIPT=""
+      DOWNLOAD_SCRIPT="$(resolve_whisper_download_script)" || err "Script download modello Whisper non trovato"
+      bash "$DOWNLOAD_SCRIPT" "$MODEL_NAME" || err "Download modello ${MODEL_NAME} fallito"
     fi
     WHISPER_MODEL="$MODEL_BIN"
   else

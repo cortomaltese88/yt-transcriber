@@ -122,7 +122,27 @@ L'installazione e la configurazione di `whisper.cpp` restano a carico dell'utent
 
 Per i file locali `yt-dlp` non è necessario. Per URL video / sorgenti online, `yt-dlp` resta invece necessario.
 
-Se `whisper.cpp` non è disponibile, la pipeline shell può usare un backend Python già installato basato su `faster-whisper`, incluso un venv utente dedicato, ma il backend di trascrizione resta comunque esterno al pacchetto `.deb`.
+`whisper.cpp` resta il backend consigliato. Se non è disponibile, la pipeline shell può usare un backend Python basato su `faster-whisper`, incluso un venv utente dedicato, ma il backend di trascrizione resta comunque esterno al pacchetto `.deb`.
+
+### Configurazione consigliata whisper.cpp in home utente
+
+Per configurare `whisper.cpp` senza modificare il sistema, `yt-transcriber` può usare:
+
+```text
+~/.local/share/yt-transcriber/whisper.cpp
+```
+
+Da repository sorgente:
+
+```bash
+bash scripts/setup_whisper_cpp.sh
+```
+
+Da pacchetto `.deb` installato:
+
+```bash
+yt-transcriber --setup-whisper-cpp
+```
 
 ### Configurazione opzionale faster-whisper in venv utente
 
@@ -173,6 +193,8 @@ La GUI e la pipeline cercano il modello selezionato (`ggml-medium.bin`, `ggml-sm
 Per retrocompatibilità, la pipeline accetta anche `WHISPER_MODEL`.
 
 La GUI abilita l'avvio se trova `whisper.cpp` configurato oppure, in alternativa, un fallback Python `faster-whisper` disponibile; in caso contrario lascia disabilitato `Avvia pipeline` e mostra un warning chiaro invece di andare in traceback.
+
+Se il backend manca, la GUI mostra il pulsante `Configura backend Whisper`, che permette di scegliere tra `whisper.cpp` come backend consigliato e `faster-whisper` come fallback più semplice. Entrambi i setup operano solo su consenso esplicito dell'utente.
 
 ### Configurazione temporanea tramite variabili ambiente
 
@@ -258,6 +280,7 @@ yt-transcriber/
 ├── set_lang_it.py            # Imposta la lingua italiana nei file .docx prodotti
 │
 ├── build_deb.sh              # Costruisce il pacchetto .deb installabile
+├── scripts/setup_whisper_cpp.sh          # Setup guidato whisper.cpp in home utente
 ├── scripts/setup_faster_whisper_venv.sh  # Setup opzionale del venv utente faster-whisper
 │
 ├── yt-transcriber_<version>_amd64.deb   # Pacchetto installabile generato per una release

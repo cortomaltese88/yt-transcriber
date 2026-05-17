@@ -130,6 +130,7 @@ run_check "Pipeline Whisper: detect_python_backend presente" grep -Fq 'detect_py
 run_check "Pipeline Whisper: env YT_TRANSCRIBER_WHISPER_BIN presente" grep -Fq 'YT_TRANSCRIBER_WHISPER_BIN' yt-transcriber.sh
 run_check "Pipeline Whisper: env YT_TRANSCRIBER_WHISPER_MODEL presente" grep -Fq 'YT_TRANSCRIBER_WHISPER_MODEL' yt-transcriber.sh
 run_check "Pipeline Whisper: venv utente presente" grep -Fq '.local/share/yt-transcriber/venv' yt-transcriber.sh
+run_check "Pipeline Whisper: whisper.cpp gestito dall'app presente" grep -Fq '.local/share/yt-transcriber/whisper.cpp' yt-transcriber.sh
 run_check "Log audio: Preparazione audio" grep -Fq 'Preparazione audio' yt-transcriber.sh
 run_check "Log audio: Analisi file audio" grep -Fq 'Analisi file audio' yt-transcriber.sh
 run_check "Log audio: Nessun filtro audio applicato" grep -Fq 'Nessun filtro audio applicato' yt-transcriber.sh
@@ -148,12 +149,27 @@ run_check "GUI Whisper: resolve_whisper_bin presente" grep -Fq 'def resolve_whis
 run_check "GUI Whisper: resolve_whisper_model presente" grep -Fq 'def resolve_whisper_model' yt-transcriber_gui.py
 run_check "GUI Whisper: fallback faster-whisper presente" grep -Fq 'Fallback Python disponibile:' yt-transcriber_gui.py
 run_check "GUI Whisper: warning backend mancante presente" grep -Fq 'Configura whisper.cpp oppure installa faster-whisper.' yt-transcriber_gui.py
+run_check "GUI Whisper: pulsante setup presente" grep -Fq 'Configura backend Whisper' yt-transcriber_gui.py
+run_check "GUI Whisper: resolve setup script presente" grep -Fq 'def resolve_setup_faster_whisper_script' yt-transcriber_gui.py
+run_check "GUI Whisper: resolve whisper.cpp script presente" grep -Fq 'def resolve_setup_whisper_cpp_script' yt-transcriber_gui.py
+run_check "GUI Whisper: scelta whisper.cpp presente" grep -Fq 'Installa whisper.cpp' yt-transcriber_gui.py
+run_check "GUI Whisper: scelta faster-whisper presente" grep -Fq 'Installa faster-whisper' yt-transcriber_gui.py
+run_check "GUI Whisper: dialog backend presente" grep -Fq 'Configura backend Whisper' yt-transcriber_gui.py
 run_check "GUI Whisper: run button bloccato senza backend" grep -Fq 'self.run_btn.setEnabled(ok and backend_ready)' yt-transcriber_gui.py
+run_check "Backend: whisper.cpp gestito dall'app presente" grep -Fq 'whisper.cpp (gestito dall'"'"'app)' transcriber_backend.py
 run_check "Backend: faster-whisper venv utente presente" grep -Fq 'faster-whisper (venv utente)' transcriber_backend.py
+run_check "Setup whisper.cpp: script presente" test -f scripts/setup_whisper_cpp.sh
+run_check "Setup whisper.cpp: build path presente" grep -Fq '.local/share/yt-transcriber/whisper.cpp' scripts/setup_whisper_cpp.sh
+run_check "Setup whisper.cpp: launcher presente" grep -Fq -- '--setup-whisper-cpp' build_deb.sh
+run_check "Setup whisper.cpp: niente sudo automatico" bash -lc '! grep -Eq "^[[:space:]]*sudo[[:space:]]" scripts/setup_whisper_cpp.sh'
 run_check "Setup faster-whisper venv: script presente" test -f scripts/setup_faster_whisper_venv.sh
 run_check "Setup faster-whisper venv: riferimento percorso presente" grep -Fq '.local/share/yt-transcriber/venv' scripts/setup_faster_whisper_venv.sh
+run_check "Setup faster-whisper venv: MODEL_NAME presente" grep -Fq 'MODEL_NAME=' scripts/setup_faster_whisper_venv.sh
+run_check "Setup faster-whisper venv: WhisperModel presente" grep -Fq 'WhisperModel' scripts/setup_faster_whisper_venv.sh
 run_check "Setup faster-whisper venv: niente break-system-packages" bash -lc '! grep -RIn -- "--break-system-packages" transcriber_backend.py yt-transcriber.sh scripts/setup_faster_whisper_venv.sh'
 run_check "Packaging: python3-venv presente in build_deb.sh" grep -Fq 'python3-venv' build_deb.sh
+run_check "README: setup whisper.cpp presente" grep -Fq 'yt-transcriber --setup-whisper-cpp' README.md
+run_check "README: setup faster-whisper presente" grep -Fq 'yt-transcriber --setup-faster-whisper' README.md
 run_check "GUI: toggle Normalizza audio presente" grep -Fq 'Normalizza audio' yt-transcriber_gui.py
 run_check "GUI file locale: campo editabile/incollabile" grep -Fq 'self.file_input = MatrixInput("Seleziona un file audio o video…")' yt-transcriber_gui.py
 run_check "GUI file locale: validazione is_file presente" grep -Fq 'path.is_file()' yt-transcriber_gui.py

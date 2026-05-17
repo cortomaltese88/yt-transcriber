@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (
     QTabWidget, QSplashScreen, QComboBox, QListWidget, QListWidgetItem, QMenu,
     QStackedLayout, QSystemTrayIcon
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QRect
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QRect, QProcess
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtGui import (QFont, QTextCursor, QPalette, QColor,
                           QPixmap, QPainter, QPen, QBrush, QLinearGradient,
@@ -44,11 +44,17 @@ YT_TRANSCRIBER_WHISPER_BIN_ENV = "YT_TRANSCRIBER_WHISPER_BIN"
 YT_TRANSCRIBER_WHISPER_MODEL_ENV = "YT_TRANSCRIBER_WHISPER_MODEL"
 LEGACY_WHISPER_BIN_ENV = "WHISPER_BIN"
 LEGACY_WHISPER_MODEL_ENV = "WHISPER_MODEL"
+SETUP_FASTER_WHISPER_SCRIPT = PIPELINE_DIR / "scripts" / "setup_faster_whisper_venv.sh"
+INSTALLED_SETUP_FASTER_WHISPER_SCRIPT = Path("/usr/lib/yt-transcriber/scripts/setup_faster_whisper_venv.sh")
+SETUP_WHISPER_CPP_SCRIPT = PIPELINE_DIR / "scripts" / "setup_whisper_cpp.sh"
+INSTALLED_SETUP_WHISPER_CPP_SCRIPT = Path("/usr/lib/yt-transcriber/scripts/setup_whisper_cpp.sh")
+APP_WHISPER_CPP_DIR = Path.home() / ".local/share/yt-transcriber/whisper.cpp"
 
 WHISPER_BIN_CANDIDATES = (
     Path.home() / "whisper.cpp/build-vulkan/bin/whisper-cli",
     Path.home() / "whisper.cpp/build-cuda/bin/whisper-cli",
     Path.home() / "whisper.cpp/build/bin/whisper-cli",
+    APP_WHISPER_CPP_DIR / "build/bin/whisper-cli",
     Path("/usr/local/bin/whisper-cli"),
     Path("/usr/bin/whisper-cli"),
 )
@@ -56,6 +62,7 @@ WHISPER_BIN_CANDIDATES = (
 WHISPER_MODEL_BASE_DIRS = (
     Path.home() / "whisper.cpp/models",
     Path.home() / ".local/share/yt-transcriber/models",
+    APP_WHISPER_CPP_DIR / "models",
     Path("/usr/share/yt-transcriber/models"),
     Path("/usr/local/share/whisper.cpp/models"),
 )
@@ -237,6 +244,26 @@ def resolve_whisper_model(model_name):
             return candidate, candidate.name, issues
 
     return None, filename, issues
+
+
+def resolve_setup_faster_whisper_script():
+    for candidate in (
+        SETUP_FASTER_WHISPER_SCRIPT,
+        INSTALLED_SETUP_FASTER_WHISPER_SCRIPT,
+    ):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def resolve_setup_whisper_cpp_script():
+    for candidate in (
+        SETUP_WHISPER_CPP_SCRIPT,
+        INSTALLED_SETUP_WHISPER_CPP_SCRIPT,
+    ):
+        if candidate.is_file():
+            return candidate
+    return None
 
 
 # ── Worker ────────────────────────────────────────────────────────────────────
@@ -746,6 +773,8 @@ class MainWindow(QMainWindow):
         self._backend_idle_timer.setSingleShot(True)
         self._backend_idle_timer.timeout.connect(self._show_backend_idle_if_quiet)
         self._backend_status = {}
+        self._setup_process = None
+        self._setup_process_label = ""
 
         self.setWindowTitle(f"yt-transcriber v{APP_VERSION} — Studio GD LEX")
         self.setMinimumSize(1000, 860)
@@ -1091,6 +1120,7 @@ class MainWindow(QMainWindow):
         self.clear_btn  = QPushButton("clear log");      self.clear_btn.setObjectName("secondary")
         self.open_btn   = QPushButton("open output");    self.open_btn.setObjectName("secondary")
         self.claude_btn = QPushButton("🤖  Apri in Claude"); self.claude_btn.setObjectName("secondary")
+        self.setup_backend_btn = QPushButton("Configura backend Whisper"); self.setup_backend_btn.setObjectName("secondary")
         self.cancel_btn = QPushButton("[ abort ]");      self.cancel_btn.setObjectName("danger")
         self.run_btn    = QPushButton("▶  AVVIA PIPELINE"); self.run_btn.setObjectName("primary")
 
@@ -1098,15 +1128,18 @@ class MainWindow(QMainWindow):
         self.clear_btn.clicked.connect(self._clear_log)
         self.open_btn.clicked.connect(self._open_output)
         self.claude_btn.clicked.connect(self._open_claude)
+        self.setup_backend_btn.clicked.connect(self._setup_backend)
         self.cancel_btn.clicked.connect(self._cancel)
         self.run_btn.clicked.connect(self._run)
 
         self.cancel_btn.setEnabled(False)
         self.claude_btn.setEnabled(False)
+        self.setup_backend_btn.setVisible(False)
         self.run_btn.setEnabled(False)
 
         fl.addWidget(self.about_btn); fl.addWidget(self.clear_btn)
         fl.addWidget(self.open_btn);  fl.addWidget(self.claude_btn)
+        fl.addWidget(self.setup_backend_btn)
         fl.addStretch()
         fl.addWidget(self.cancel_btn); fl.addSpacing(8); fl.addWidget(self.run_btn)
         root.addWidget(footer)
@@ -1212,6 +1245,15 @@ class MainWindow(QMainWindow):
             self.dep_badge.setStyleSheet(f"color:{GOLD};background:#1A1000;border:1px solid {GOLD};border-radius:3px;padding:4px 12px;font-family:{FONT_MONO};")
             self.dep_badge.setToolTip(warning_text)
             self._log(f"⚠  {warning_text.replace(chr(10), ' | ')}", GOLD)
+        whisper_cpp_script = resolve_setup_whisper_cpp_script()
+        faster_script = resolve_setup_faster_whisper_script()
+        show_setup_btn = (not status["ready"]) and (whisper_cpp_script is not None or faster_script is not None)
+        self.setup_backend_btn.setVisible(show_setup_btn)
+        self.setup_backend_btn.setEnabled(show_setup_btn and self._setup_process is None)
+        if show_setup_btn:
+            self.setup_backend_btn.setToolTip(
+                "Configura whisper.cpp (consigliato) oppure faster-whisper (fallback)."
+            )
         self._update_run_btn()
 
     # ── Slot UI ───────────────────────────────────────────────────────────────
@@ -1268,6 +1310,14 @@ class MainWindow(QMainWindow):
     def _update_run_btn(self):
         if self.worker and self.worker.isRunning():
             self.run_btn.setEnabled(False)
+            if self.setup_backend_btn.isVisible():
+                self.setup_backend_btn.setEnabled(False)
+            self._update_tray_state()
+            return
+        if self._setup_process is not None:
+            self.run_btn.setEnabled(False)
+            if self.setup_backend_btn.isVisible():
+                self.setup_backend_btn.setEnabled(False)
             self._update_tray_state()
             return
         if self._mode == "youtube":
@@ -1285,6 +1335,8 @@ class MainWindow(QMainWindow):
             self.run_btn.setToolTip("Seleziona un file audio o video valido.")
         else:
             self.run_btn.setToolTip("Avvia la pipeline di trascrizione.")
+        if self.setup_backend_btn.isVisible():
+            self.setup_backend_btn.setEnabled(True)
         self._update_tray_state()
 
     def _on_fmt_changed(self, fmt, v):
@@ -1312,6 +1364,116 @@ class MainWindow(QMainWindow):
             self.file_input.setText(f)
             if not self.title_input.text().strip():
                 self.title_input.setText(Path(f).stem)
+
+    def _setup_backend(self):
+        if self._setup_process is not None:
+            return
+
+        box = QMessageBox(self)
+        box.setWindowTitle("Configura backend Whisper")
+        box.setText(
+            "Scegli come configurare il backend Whisper.\n\n"
+            "whisper.cpp: backend consigliato, usa whisper-cli e modelli ggml.\n"
+            "faster-whisper: alternativa Python in venv utente, più semplice se whisper.cpp non è disponibile o non si compila."
+        )
+        whisper_btn = box.addButton("Installa whisper.cpp", QMessageBox.ButtonRole.AcceptRole)
+        faster_btn = box.addButton("Installa faster-whisper", QMessageBox.ButtonRole.ActionRole)
+        cancel_btn = box.addButton("Annulla", QMessageBox.ButtonRole.RejectRole)
+        box.exec()
+
+        clicked = box.clickedButton()
+        if clicked == cancel_btn or clicked is None:
+            return
+        if clicked == whisper_btn:
+            script_path = resolve_setup_whisper_cpp_script()
+            setup_label = "whisper.cpp"
+            setup_note = (
+                "Vuoi installare whisper.cpp in uno spazio utente dedicato e scaricare/verificare il modello selezionato?\n\n"
+                "- non serve sudo\n"
+                "- non viene modificato Python di sistema\n"
+                "- verra' creato ~/.local/share/yt-transcriber/whisper.cpp\n"
+                "- servono git, cmake, make e g++/c++\n"
+                "- serve connessione internet\n"
+                "- il download del modello puo' richiedere tempo"
+            )
+        elif clicked == faster_btn:
+            script_path = resolve_setup_faster_whisper_script()
+            setup_label = "faster-whisper"
+            setup_note = (
+                "Vuoi installare faster-whisper e scaricare/verificare il modello selezionato?\n\n"
+                "- non serve sudo\n"
+                "- non viene modificato Python di sistema\n"
+                "- verra' creato ~/.local/share/yt-transcriber/venv\n"
+                "- serve connessione internet\n"
+                "- il download del modello puo' richiedere tempo"
+            )
+        else:
+            return
+
+        if script_path is None:
+            QMessageBox.warning(self, "Configura backend Whisper", "Script di setup non trovato.")
+            return
+
+        answer = QMessageBox.question(
+            self,
+            f"Installa {setup_label}",
+            setup_note,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        self._log(f"▶  Avvio setup {setup_label}…", "#00FFFF")
+        self._log(f"   script: {script_path}", MUTED)
+        self._log(f"   modello: {self._whisper_model}", MUTED)
+        self.setup_backend_btn.setEnabled(False)
+        self.setup_backend_btn.setText("Setup in corso…")
+
+        proc = QProcess(self)
+        proc.setProgram("bash")
+        proc.setArguments([str(script_path), self._whisper_model or "medium"])
+        proc.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        proc.readyReadStandardOutput.connect(self._on_setup_backend_output)
+        proc.finished.connect(self._on_setup_backend_finished)
+        self._setup_process = proc
+        self._setup_process_label = setup_label
+        proc.start()
+        self._update_run_btn()
+
+    def _on_setup_backend_output(self):
+        if self._setup_process is None:
+            return
+        raw = bytes(self._setup_process.readAllStandardOutput()).decode("utf-8", errors="replace")
+        for line in raw.splitlines():
+            if line.strip():
+                self._log(line, GREEN_DIM)
+
+    def _on_setup_backend_finished(self, exit_code, exit_status):
+        proc = self._setup_process
+        if proc is not None:
+            self._on_setup_backend_output()
+            proc.deleteLater()
+        self._setup_process = None
+        setup_label = getattr(self, "_setup_process_label", "backend Whisper")
+        self._setup_process_label = ""
+        self.setup_backend_btn.setText("Configura backend Whisper")
+        self._check_deps()
+
+        if exit_status == QProcess.ExitStatus.NormalExit and exit_code == 0:
+            self._log(f"✓  Setup {setup_label} completato.", GREEN)
+            QMessageBox.information(
+                self,
+                "Setup completato",
+                "Setup completato. Riavvia yt-transcriber per rilevare il nuovo backend."
+            )
+        else:
+            self._log(f"✗  Setup {setup_label} fallito.", RED)
+            QMessageBox.warning(
+                self,
+                "Configura backend Whisper",
+                f"Setup {setup_label} fallito. Controlla il log e verifica requisiti e connessione internet."
+            )
 
     def _clear_log(self):
         self._hide_backend_idle_animation()

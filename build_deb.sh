@@ -45,6 +45,7 @@ cp "$SOURCE_DIR/transcriber_backend.py"  "$BUILD_DIR/usr/lib/${PACKAGE}/"
 cp "$SOURCE_DIR/make_docx_styled.js"     "$BUILD_DIR/usr/lib/${PACKAGE}/"
 cp "$SOURCE_DIR/set_lang_it.py"         "$BUILD_DIR/usr/lib/${PACKAGE}/"
 cp "$SOURCE_DIR/scripts/setup_faster_whisper_venv.sh" "$BUILD_DIR/usr/lib/${PACKAGE}/scripts/"
+cp "$SOURCE_DIR/scripts/setup_whisper_cpp.sh" "$BUILD_DIR/usr/lib/${PACKAGE}/scripts/"
 
 if [[ -d "$SOURCE_DIR/assets" ]]; then
     cp -r "$SOURCE_DIR/assets" "$BUILD_DIR/usr/lib/${PACKAGE}/"
@@ -71,6 +72,8 @@ APP_DIR="/usr/lib/yt-transcriber"
 case "${1:-}" in
     --help|-h)
         exec bash "$APP_DIR/yt-transcriber.sh" --help ;;
+    --setup-whisper-cpp)
+        exec bash "$APP_DIR/scripts/setup_whisper_cpp.sh" ;;
     --setup-faster-whisper)
         exec bash "$APP_DIR/scripts/setup_faster_whisper_venv.sh" ;;
     http*|--local)
@@ -81,6 +84,7 @@ esac
 LAUNCHER
 chmod +x "$BUILD_DIR/usr/bin/${PACKAGE}"
 chmod 755 "$BUILD_DIR/usr/lib/${PACKAGE}/scripts/setup_faster_whisper_venv.sh"
+chmod 755 "$BUILD_DIR/usr/lib/${PACKAGE}/scripts/setup_whisper_cpp.sh"
 
 # ── Icone ─────────────────────────────────────────────────────────────────────
 if [[ -f "$SOURCE_DIR/yt-transcriber.png" ]]; then
