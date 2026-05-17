@@ -128,6 +128,18 @@ resolve_whisper_model_path() {
   echo "$HOME/whisper.cpp/models/ggml-${model_input}.bin"
 }
 
+detect_python_backend() {
+  python3 - <<'PYEOF'
+import importlib.util
+
+if importlib.util.find_spec("faster_whisper") is not None:
+    print("faster-whisper")
+    raise SystemExit(0)
+
+print("none")
+PYEOF
+}
+
 # ── Colori ────────────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 BLUE='\033[0;34m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
@@ -229,36 +241,65 @@ watch_progress() {
 
 # ── Verifica dipendenze ───────────────────────────────────────────────────────
 check_deps() {
+  local is_local_input="${1:-0}"
   step "Verifica dipendenze"
   local ok=1
   local whisper_bin_resolved=""
-  for cmd in yt-dlp ffmpeg ffprobe node python3 bc; do
+  local python_backend=""
+
+  for cmd in ffmpeg ffprobe node python3 bc; do
     if command -v "$cmd" &>/dev/null; then ok "$cmd"; else warn "$cmd non trovato"; ok=0; fi
   done
+
+  if [[ "$is_local_input" != "1" ]]; then
+    if command -v yt-dlp &>/dev/null; then
+      ok "yt-dlp"
+    else
+      warn "yt-dlp non trovato"
+      ok=0
+    fi
+  else
+    if command -v yt-dlp &>/dev/null; then
+      ok "yt-dlp (opzionale per file locali)"
+    else
+      ok "yt-dlp non richiesto per file locali"
+    fi
+  fi
+
   if whisper_bin_resolved="$(resolve_whisper_bin 2>/dev/null)"; then
     WHISPER_BIN="$whisper_bin_resolved"
     ok "whisper-cli ($(basename "$(dirname "$WHISPER_BIN")"))"
   else
-    warn "whisper-cli non trovato"
-    ok=0
+    python_backend="$(detect_python_backend 2>/dev/null || true)"
+    if [[ -n "$python_backend" && "$python_backend" != "none" ]]; then
+      ok "backend Python fallback: $python_backend"
+    else
+      warn "whisper-cli non trovato"
+      warn "nessun backend Python fallback trovato (faster-whisper)"
+      ok=0
+    fi
   fi
   local model_input
   model_input="${YT_TRANSCRIBER_WHISPER_MODEL:-${WHISPER_MODEL:-medium}}"
-  local check_model
-  check_model="$(resolve_whisper_model_path "$model_input")"
-  WHISPER_MODEL="$check_model"
-  if [[ ! -f "$check_model" ]]; then
-    if [[ -n "${YT_TRANSCRIBER_WHISPER_MODEL:-}" || "$model_input" == */* || "$model_input" == *.bin ]]; then
-      warn "modello .bin esplicito non trovato: $check_model"
-      ok=0
+  if [[ -n "${WHISPER_BIN:-}" ]]; then
+    local check_model
+    check_model="$(resolve_whisper_model_path "$model_input")"
+    WHISPER_MODEL="$check_model"
+    if [[ ! -f "$check_model" ]]; then
+      if [[ -n "${YT_TRANSCRIBER_WHISPER_MODEL:-}" || "$model_input" == */* || "$model_input" == *.bin ]]; then
+        warn "modello .bin esplicito non trovato: $check_model"
+        ok=0
+      else
+        warn "modello non trovato: $check_model (verrà scaricato automaticamente)"
+      fi
     else
-      warn "modello non trovato: $check_model (verrà scaricato automaticamente)"
+      ok "modello $(basename "$check_model")"
     fi
   else
-    ok "modello $(basename $check_model)"
+    ok "modello ggml non richiesto: verrà usato il backend Python fallback"
   fi
   if [[ $ok -eq 0 ]]; then
-    err "Dipendenze mancanti. Controlla la configurazione."
+    err "Dipendenze mancanti. Per proseguire configura whisper.cpp oppure installa manualmente faster-whisper."
   fi
 }
 
@@ -320,7 +361,7 @@ main() {
   local today
   today=$(date +%Y%m%d)
 
-  check_deps
+  check_deps "$is_local"
 
   # ── Step 1: Sorgente audio ────────────────────────────────────────────────
   local raw_audio="$WORK_DIR/audio_raw.mp3"
@@ -415,15 +456,21 @@ main() {
   # Verifica modello:
   # - nome modello (es. medium): path standard + download automatico se assente
   # - path .bin avanzato: deve esistere, nessun download automatico
-  local MODEL_BIN
-  MODEL_BIN="$(resolve_whisper_model_path "$MODEL_INPUT")"
-  if [[ ! -f "$MODEL_BIN" && "$MODEL_INPUT" != */* && "$MODEL_INPUT" != *.bin && -z "${YT_TRANSCRIBER_WHISPER_MODEL:-}" ]]; then
-    step "Download modello Whisper: ${MODEL_NAME}"
-    bash "$HOME/whisper.cpp/models/download-ggml-model.sh" "$MODEL_NAME" || \
-      err "Download modello ${MODEL_NAME} fallito"
+  local MODEL_BIN=""
+  local WHISPER_BIN_RESOLVED=""
+  if WHISPER_BIN_RESOLVED="$(resolve_whisper_bin 2>/dev/null)"; then
+    WHISPER_BIN="$WHISPER_BIN_RESOLVED"
+    MODEL_BIN="$(resolve_whisper_model_path "$MODEL_INPUT")"
+    if [[ ! -f "$MODEL_BIN" && "$MODEL_INPUT" != */* && "$MODEL_INPUT" != *.bin && -z "${YT_TRANSCRIBER_WHISPER_MODEL:-}" ]]; then
+      step "Download modello Whisper: ${MODEL_NAME}"
+      bash "$HOME/whisper.cpp/models/download-ggml-model.sh" "$MODEL_NAME" || \
+        err "Download modello ${MODEL_NAME} fallito"
+    fi
+    WHISPER_MODEL="$MODEL_BIN"
+  else
+    WHISPER_BIN=""
+    WHISPER_MODEL=""
   fi
-  WHISPER_MODEL="$MODEL_BIN"
-  WHISPER_BIN="$(resolve_whisper_bin)"
 
   # Rileva backend migliore disponibile
   local BACKEND_INFO
@@ -500,19 +547,9 @@ try:
     )
     sys.exit(0 if ok else 1)
 except ImportError:
-    import subprocess, sys as _sys
-    subprocess.run([_sys.executable, "-m", "pip", "install",
-                    "faster-whisper", "--break-system-packages", "-q"])
-    from faster_whisper import WhisperModel
-    model = WhisperModel("medium", device="cpu", compute_type="int8")
-    lang = sys.argv[3] if sys.argv[3] else None
-    segments, info = model.transcribe(sys.argv[1], language=lang)
-    lines = []
-    for i, seg in enumerate(segments):
-        ms = lambda t: f"{int(t//3600):02d}:{int((t%3600)//60):02d}:{int(t%60):02d},{int((t%1)*1000):03d}"
-        lines.append(f"{i+1}\n{ms(seg.start)} --> {ms(seg.end)}\n{seg.text.strip()}\n")
-        print(f"[{int(seg.end//3600):02d}:{int((seg.end%3600)//60):02d}:{int(seg.end%60):02d}] {seg.text.strip()}", flush=True)
-    open(sys.argv[2], 'w').write("\n".join(lines))
+    print("ERRORE: whisper.cpp non disponibile e backend Python non importabile.", file=sys.stderr)
+    print("Installa manualmente faster-whisper oppure configura whisper.cpp.", file=sys.stderr)
+    sys.exit(1)
 PYEOF
     [[ $? -ne 0 ]] && err "Trascrizione Python fallita"
   fi

@@ -118,6 +118,10 @@ Per funzionare, `yt-transcriber` richiede:
 
 L'installazione e la configurazione di `whisper.cpp` restano a carico dell'utente.
 
+Per i file locali `yt-dlp` non è necessario. Per URL video / sorgenti online, `yt-dlp` resta invece necessario.
+
+Se `whisper.cpp` non è disponibile, la pipeline shell può usare un backend Python già installato basato su `faster-whisper`, ma il backend di trascrizione resta comunque esterno al pacchetto `.deb`.
+
 ### Ricerca automatica di `whisper-cli`
 
 La GUI e la pipeline cercano `whisper-cli` in questo ordine:
