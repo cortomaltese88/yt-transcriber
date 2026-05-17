@@ -102,7 +102,8 @@ jobs:
 
           ! find "${audit_root}" -type f | grep -E 'STATO_PROGETTO_YT_TRANSCRIBER|TODO_YT_TRANSCRIBER|AGGIORNA_STATO_PROGETTO_E_TODO|YT-TRANSCRIBER_PROMPT_REVISIONE|yt-transcriber_SKILL_v107'
           ! find "${audit_root}" -print | grep -F '/home/marco'
-          ! grep -RInIE 'smb://|UIL\.mp3|RGNR|fascicolo|cliente|PEC|codice fiscale|telefono|indirizzo' "${audit_root}"
+          ! grep -RInIE 'smb://|UIL\.mp3|RGNR|fascicolo|cliente|codice fiscale|telefono|indirizzo' "${audit_root}"
+          ! grep -RInE '(^|[^[:alnum:]_])PEC([^[:alnum:]_]|$)' "${audit_root}"
 
       - name: Verify Debian package version
         shell: bash
