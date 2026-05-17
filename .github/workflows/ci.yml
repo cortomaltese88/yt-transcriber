@@ -35,7 +35,7 @@ jobs:
         run: npm ci
 
       - name: Python bytecode check
-        run: python3 -m py_compile yt-transcriber_gui.py transcriber_backend.py
+        run: python3 -m py_compile yt-transcriber_gui.py transcriber_backend.py set_lang_it.py
 
       - name: Smoke test
         run: ./smoke_test.sh

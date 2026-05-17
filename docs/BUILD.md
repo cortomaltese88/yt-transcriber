@@ -54,7 +54,7 @@ Output atteso:
 yt-transcriber_<version>_amd64.deb
 ```
 
-Con la versione corrente del repository, il file atteso e' `yt-transcriber_1.1.3_amd64.deb`.
+Con la versione corrente del repository, il default locale di `build_deb.sh` produce `yt-transcriber_1.1.3_amd64.deb`.
 
 ## Audit minimo del .deb
 
@@ -74,7 +74,6 @@ In caso di audit piu' puntuale, estrarre il pacchetto in una directory temporane
 
 ## Nota su APP_VERSION e build da tag
 
-`build_deb.sh` usa `VERSION="1.1.3"` come default locale, ma se la variabile ambiente `APP_VERSION` e' valorizzata usa quel valore dopo la rimozione dell'eventuale prefisso `v`.
+`build_deb.sh` usa `VERSION="1.1.3"` come default locale corrente, ma se la variabile ambiente `APP_VERSION` e' valorizzata usa quel valore dopo la rimozione dell'eventuale prefisso `v`.
 
 Nel workflow di release, `APP_VERSION` deriva dal tag Git `v*`. Per una build manuale coerente con una release, conviene partire da un tag annotato esistente oppure esportare `APP_VERSION` in modo esplicito prima di eseguire `bash build_deb.sh`.
-

@@ -104,6 +104,18 @@ jobs:
           ! find "${audit_root}" -print | grep -F '/home/marco'
           ! grep -RInIE 'smb://|UIL\.mp3|RGNR|fascicolo|cliente|PEC|codice fiscale|telefono|indirizzo' "${audit_root}"
 
+      - name: Verify Debian package version
+        shell: bash
+        run: |
+          set -euo pipefail
+          deb_file="yt-transcriber_${APP_VERSION}_amd64.deb"
+          deb_version="$(dpkg-deb -f "${deb_file}" Version)"
+          if [[ "${deb_version}" != "${APP_VERSION}" ]]; then
+            echo "ERRORE: Version Debian (${deb_version}) diversa da APP_VERSION (${APP_VERSION})."
+            exit 1
+          fi
+          echo "OK: Version Debian coerente con APP_VERSION (${APP_VERSION})."
+
       - name: Upload release asset
         uses: softprops/action-gh-release@v2
         with:

@@ -7,7 +7,9 @@ Questa procedura documenta il flusso release attuale senza introdurre nuovi step
 - `CI`: eseguito su `push` verso `main`, `pull_request` verso `main` e `workflow_dispatch`
 - `Release Debian Package`: eseguito su `push` di tag `v*` e `workflow_dispatch`
 
-Il workflow di release verifica la coerenza versione, esegue `npm ci`, `py_compile`, `./smoke_test.sh`, costruisce il `.deb`, lo audita e pubblica l'asset nella release GitHub.
+Il workflow di release verifica la coerenza versione, esegue `npm ci`, `py_compile`, `./smoke_test.sh`, costruisce il `.deb`, lo audita, controlla il campo Debian `Version` e pubblica l'asset nella release GitHub.
+
+Se avviato via `workflow_dispatch`, il workflow deve comunque puntare a un ref di tipo tag `v*`; in caso contrario fallisce per la guardia di sicurezza sul `GITHUB_REF`.
 
 ## File da aggiornare per il bump versione
 
@@ -44,12 +46,6 @@ Quando tutti i controlli sono verdi:
 git tag -a v<version> -m "Release v<version>"
 ```
 
-Esempio:
-
-```bash
-git tag -a v1.1.3 -m "Release v1.1.3"
-```
-
 ## Push del tag
 
 Pubblicare il tag sul remoto:
@@ -82,4 +78,3 @@ Se il tag punta a uno stato errato, valutare con prudenza la strategia Git piu' 
 ## Asset storici
 
 Non caricare manualmente vecchi file `.deb` o pacchetti generati in precedenza. Ogni release deve pubblicare solo l'asset coerente con il tag corrente.
-

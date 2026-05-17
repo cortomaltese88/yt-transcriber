@@ -20,7 +20,7 @@ echo "=== Build .deb ${PACKAGE} v${VERSION} ==="
 # Verifica dipendenze Node necessarie al runtime DOCX
 if [[ ! -d "$SOURCE_DIR/node_modules/docx" ]]; then
     echo "ERRORE: dipendenza Node mancante: node_modules/docx"
-    echo "Esegui 'npm install' nella cartella del progetto prima di build_deb.sh"
+    echo "Esegui 'npm ci' nella cartella del progetto prima di build_deb.sh"
     exit 1
 fi
 

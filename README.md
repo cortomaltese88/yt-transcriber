@@ -83,10 +83,10 @@ Nota prudente: il supporto delle sorgenti online resta dipendente da `yt-dlp`; i
 
 ### Opzione A — Pacchetto .deb (consigliata)
 
-Un pacchetto già pronto è incluso nella cartella del progetto:
+Se si dispone di un pacchetto `.deb` già generato o scaricato dalla release GitHub:
 
 ```bash
-sudo dpkg -i yt-transcriber_1.1.3_amd64.deb
+sudo dpkg -i yt-transcriber_<version>_amd64.deb
 sudo apt-get install -f   # risolve eventuali dipendenze mancanti
 ```
 
@@ -231,7 +231,7 @@ studio-tools/
 │
 ├── build_deb.sh              # Costruisce il pacchetto .deb installabile
 │
-├── yt-transcriber_1.1.3_amd64.deb   # Pacchetto installabile già pronto
+├── yt-transcriber_<version>_amd64.deb   # Pacchetto installabile generato per una release
 │
 ├── package.json              # Dipendenze Node.js (libreria docx)
 └── node_modules/             # Librerie Node.js (generate da npm install)
