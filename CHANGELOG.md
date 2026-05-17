@@ -2,6 +2,14 @@
 
 Questo file riassume in modo sintetico le variazioni documentabili del progetto.
 
+## v1.1.5 - Portabilita' Linux migliorata
+
+- yt-dlp non e' piu' obbligatorio per la trascrizione di file locali.
+- La pipeline shell puo' usare faster-whisper come fallback se whisper.cpp non e' configurato.
+- La GUI abilita l'avvio anche con fallback faster-whisper disponibile.
+- Rimossa l'auto-install implicita di faster-whisper tramite pip.
+- Documentazione aggiornata sul backend Whisper esterno al pacchetto .deb.
+
 ## v1.1.4
 
 - Rafforzata la verifica release Debian con controllo del campo `Version` nel workflow dedicato.

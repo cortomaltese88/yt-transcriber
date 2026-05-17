@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-yt-transcriber GUI v1.1.4
+yt-transcriber GUI v1.1.5
 Pipeline Trascrizione Audio/Video — Studio GD LEX
 """
 
@@ -23,7 +23,7 @@ from PyQt6.QtGui import (QFont, QTextCursor, QPalette, QColor,
                           QAction, QIcon)
 
 # ── Versione ───────────────────────────────────────────────────────────────────
-APP_VERSION = "1.1.4"
+APP_VERSION = "1.1.5"
 APP_AUTHOR  = "Studio GD LEX"
 APP_YEAR    = "2026"
 

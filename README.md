@@ -5,7 +5,7 @@
 # yt-transcriber
 
 **Pipeline Trascrizione Audio/Video — Studio GD LEX**  
-Versione 1.1.4 · 2026 · Licenza: GPL-3.0-or-later
+Versione 1.1.5 · 2026 · Licenza: GPL-3.0-or-later
 
 ---
 
