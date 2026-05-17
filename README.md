@@ -257,6 +257,17 @@ studio-tools/
 
 ---
 
+## Documentazione
+
+- `docs/BUILD.md` — build locale e verifiche
+- `docs/RELEASE.md` — procedura release/tag e workflow automatico
+- `docs/TROUBLESHOOTING.md` — problemi frequenti
+- `CHANGELOG.md` — storico sintetico delle versioni
+- `SECURITY.md` — segnalazione problemi di sicurezza
+- `CONTRIBUTING.md` — regole di contribuzione
+
+---
+
 ## 7. Autore e licenza
 
 **Autore:** Studio GD LEX  
