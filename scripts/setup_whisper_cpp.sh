@@ -53,7 +53,17 @@ if [[ ! -f "$MODEL_PATH" ]]; then
 fi
 
 echo "==> Verifico whisper-cli"
-"$BIN_PATH" --help >/dev/null 2>&1 || true
+set +e
+help_output="$("$BIN_PATH" --help 2>&1)"
+help_status=$?
+set -e
+if [[ $help_status -ne 0 && $help_status -ne 1 ]]; then
+  echo "ERRORE: whisper-cli trovato ma non eseguibile correttamente" >&2
+  if [[ -n "$help_output" ]]; then
+    printf '%s\n' "$help_output" >&2
+  fi
+  exit 1
+fi
 
 echo "==> Completato"
 echo "    Binario: $BIN_PATH"

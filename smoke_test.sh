@@ -156,12 +156,14 @@ run_check "GUI Whisper: scelta whisper.cpp presente" grep -Fq 'Installa whisper.
 run_check "GUI Whisper: scelta faster-whisper presente" grep -Fq 'Installa faster-whisper' yt-transcriber_gui.py
 run_check "GUI Whisper: dialog backend presente" grep -Fq 'Configura backend Whisper' yt-transcriber_gui.py
 run_check "GUI Whisper: run button bloccato senza backend" grep -Fq 'self.run_btn.setEnabled(ok and backend_ready)' yt-transcriber_gui.py
+run_check "GUI Whisper: closeEvent protegge setup attivo" grep -Fq 'Setup backend in corso. Vuoi interromperlo e chiudere yt-transcriber?' yt-transcriber_gui.py
 run_check "Backend: whisper.cpp gestito dall'app presente" grep -Fq 'whisper.cpp (gestito dall'"'"'app)' transcriber_backend.py
 run_check "Backend: faster-whisper venv utente presente" grep -Fq 'faster-whisper (venv utente)' transcriber_backend.py
 run_check "Setup whisper.cpp: script presente" test -f scripts/setup_whisper_cpp.sh
 run_check "Setup whisper.cpp: build path presente" grep -Fq '.local/share/yt-transcriber/whisper.cpp' scripts/setup_whisper_cpp.sh
 run_check "Setup whisper.cpp: launcher presente" grep -Fq -- '--setup-whisper-cpp' build_deb.sh
 run_check "Setup whisper.cpp: niente sudo automatico" bash -lc '! grep -Eq "^[[:space:]]*sudo[[:space:]]" scripts/setup_whisper_cpp.sh'
+run_check "Setup whisper.cpp: verifica runtime senza || true" bash -lc '! grep -Fq "\"$BIN_PATH\" --help >/dev/null 2>&1 || true" scripts/setup_whisper_cpp.sh'
 run_check "Setup faster-whisper venv: script presente" test -f scripts/setup_faster_whisper_venv.sh
 run_check "Setup faster-whisper venv: riferimento percorso presente" grep -Fq '.local/share/yt-transcriber/venv' scripts/setup_faster_whisper_venv.sh
 run_check "Setup faster-whisper venv: MODEL_NAME presente" grep -Fq 'MODEL_NAME=' scripts/setup_faster_whisper_venv.sh

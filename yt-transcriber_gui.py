@@ -775,6 +775,7 @@ class MainWindow(QMainWindow):
         self._backend_status = {}
         self._setup_process = None
         self._setup_process_label = ""
+        self._closing_during_setup = False
 
         self.setWindowTitle(f"yt-transcriber v{APP_VERSION} — Studio GD LEX")
         self.setMinimumSize(1000, 860)
@@ -1457,6 +1458,8 @@ class MainWindow(QMainWindow):
         self._setup_process = None
         setup_label = getattr(self, "_setup_process_label", "backend Whisper")
         self._setup_process_label = ""
+        if self._closing_during_setup:
+            return
         self.setup_backend_btn.setText("Configura backend Whisper")
         self._check_deps()
 
@@ -1638,6 +1641,33 @@ class MainWindow(QMainWindow):
             self.activateWindow()
             return
         self.close()
+
+    def closeEvent(self, event):
+        proc = self._setup_process
+        if proc is None or proc.state() == QProcess.ProcessState.NotRunning:
+            event.accept()
+            return
+
+        answer = QMessageBox.question(
+            self,
+            "Configura backend Whisper",
+            "Setup backend in corso. Vuoi interromperlo e chiudere yt-transcriber?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            event.ignore()
+            return
+
+        self._closing_during_setup = True
+        try:
+            proc.terminate()
+            if not proc.waitForFinished(3000):
+                proc.kill()
+                proc.waitForFinished(1000)
+        except Exception:
+            pass
+        event.accept()
 
     def _update_tray_state(self):
         if self.tray_icon is None:
