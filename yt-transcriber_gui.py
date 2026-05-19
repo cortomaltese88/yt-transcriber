@@ -26,6 +26,7 @@ from platform_paths import (
     app_whisper_cpp_dir,
     config_dir,
     default_output_dir,
+    is_windows,
     open_path,
 )
 
@@ -52,6 +53,7 @@ YT_TRANSCRIBER_WHISPER_MODEL_ENV = "YT_TRANSCRIBER_WHISPER_MODEL"
 LEGACY_WHISPER_BIN_ENV = "WHISPER_BIN"
 LEGACY_WHISPER_MODEL_ENV = "WHISPER_MODEL"
 SETUP_FASTER_WHISPER_SCRIPT = PIPELINE_DIR / "scripts" / "setup_faster_whisper_venv.sh"
+SETUP_FASTER_WHISPER_SCRIPT_PS1 = PIPELINE_DIR / "scripts" / "setup_faster_whisper_venv.ps1"
 INSTALLED_SETUP_FASTER_WHISPER_SCRIPT = Path("/usr/lib/yt-transcriber/scripts/setup_faster_whisper_venv.sh")
 SETUP_WHISPER_CPP_SCRIPT = PIPELINE_DIR / "scripts" / "setup_whisper_cpp.sh"
 INSTALLED_SETUP_WHISPER_CPP_SCRIPT = Path("/usr/lib/yt-transcriber/scripts/setup_whisper_cpp.sh")
@@ -254,10 +256,12 @@ def resolve_whisper_model(model_name):
 
 
 def resolve_setup_faster_whisper_script():
-    for candidate in (
-        SETUP_FASTER_WHISPER_SCRIPT,
-        INSTALLED_SETUP_FASTER_WHISPER_SCRIPT,
-    ):
+    candidates = (
+        (SETUP_FASTER_WHISPER_SCRIPT_PS1,)
+        if is_windows() else
+        (SETUP_FASTER_WHISPER_SCRIPT, INSTALLED_SETUP_FASTER_WHISPER_SCRIPT)
+    )
+    for candidate in candidates:
         if candidate.is_file():
             return candidate
     return None
@@ -1393,6 +1397,14 @@ class MainWindow(QMainWindow):
         if clicked == cancel_btn or clicked is None:
             return
         if clicked == whisper_btn:
+            if is_windows():
+                QMessageBox.information(
+                    self,
+                    "Configura backend Whisper",
+                    "Il setup guidato whisper.cpp su Windows non e' ancora integrato nella GUI.\n"
+                    "Per ora usa faster-whisper oppure configura whisper.cpp manualmente."
+                )
+                return
             script_path = resolve_setup_whisper_cpp_script()
             setup_label = "whisper.cpp"
             setup_note = (
@@ -1419,7 +1431,15 @@ class MainWindow(QMainWindow):
             return
 
         if script_path is None:
-            QMessageBox.warning(self, "Configura backend Whisper", "Script di setup non trovato.")
+            if setup_label == "faster-whisper" and is_windows():
+                QMessageBox.warning(
+                    self,
+                    "Configura backend Whisper",
+                    "Script PowerShell di setup faster-whisper non trovato:\n"
+                    "scripts/setup_faster_whisper_venv.ps1"
+                )
+            else:
+                QMessageBox.warning(self, "Configura backend Whisper", "Script di setup non trovato.")
             return
 
         answer = QMessageBox.question(
@@ -1438,9 +1458,31 @@ class MainWindow(QMainWindow):
         self.setup_backend_btn.setEnabled(False)
         self.setup_backend_btn.setText("Setup in corso…")
 
+        model_name = self._whisper_model or "medium"
+        if setup_label == "faster-whisper" and is_windows():
+            powershell = shutil.which("powershell.exe")
+            if not powershell:
+                QMessageBox.warning(
+                    self,
+                    "Configura backend Whisper",
+                    "PowerShell non trovato. Su Windows serve powershell.exe per avviare lo script di setup faster-whisper."
+                )
+                self.setup_backend_btn.setEnabled(True)
+                self.setup_backend_btn.setText("Configura backend Whisper")
+                return
+            program = powershell
+            arguments = [
+                "-ExecutionPolicy", "Bypass",
+                "-File", str(script_path),
+                model_name,
+            ]
+        else:
+            program = "bash"
+            arguments = [str(script_path), model_name]
+
         proc = QProcess(self)
-        proc.setProgram("bash")
-        proc.setArguments([str(script_path), self._whisper_model or "medium"])
+        proc.setProgram(program)
+        proc.setArguments(arguments)
         proc.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
         proc.readyReadStandardOutput.connect(self._on_setup_backend_output)
         proc.finished.connect(self._on_setup_backend_finished)
