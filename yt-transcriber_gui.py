@@ -21,6 +21,13 @@ from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtGui import (QFont, QTextCursor, QPalette, QColor,
                           QPixmap, QPainter, QPen, QBrush, QLinearGradient,
                           QAction, QIcon)
+from platform_paths import (
+    app_data_dir,
+    app_whisper_cpp_dir,
+    config_dir,
+    default_output_dir,
+    open_path,
+)
 
 # ── Versione ───────────────────────────────────────────────────────────────────
 APP_VERSION = "1.2.1"
@@ -37,7 +44,7 @@ except Exception:
 
 # ── Config ─────────────────────────────────────────────────────────────────────
 PIPELINE_DIR  = Path(__file__).parent
-DEFAULT_OUT   = Path.home() / "Trascrizioni"
+DEFAULT_OUT   = default_output_dir()
 SCRIPT_SH     = PIPELINE_DIR / "yt-transcriber.sh"
 SINGLE_INSTANCE_SERVER_NAME = "yt-transcriber-gdlex"
 YT_TRANSCRIBER_WHISPER_BIN_ENV = "YT_TRANSCRIBER_WHISPER_BIN"
@@ -48,7 +55,7 @@ SETUP_FASTER_WHISPER_SCRIPT = PIPELINE_DIR / "scripts" / "setup_faster_whisper_v
 INSTALLED_SETUP_FASTER_WHISPER_SCRIPT = Path("/usr/lib/yt-transcriber/scripts/setup_faster_whisper_venv.sh")
 SETUP_WHISPER_CPP_SCRIPT = PIPELINE_DIR / "scripts" / "setup_whisper_cpp.sh"
 INSTALLED_SETUP_WHISPER_CPP_SCRIPT = Path("/usr/lib/yt-transcriber/scripts/setup_whisper_cpp.sh")
-APP_WHISPER_CPP_DIR = Path.home() / ".local/share/yt-transcriber/whisper.cpp"
+APP_WHISPER_CPP_DIR = app_whisper_cpp_dir()
 
 WHISPER_BIN_CANDIDATES = (
     Path.home() / "whisper.cpp/build-vulkan/bin/whisper-cli",
@@ -61,13 +68,13 @@ WHISPER_BIN_CANDIDATES = (
 
 WHISPER_MODEL_BASE_DIRS = (
     Path.home() / "whisper.cpp/models",
-    Path.home() / ".local/share/yt-transcriber/models",
+    app_data_dir() / "models",
     APP_WHISPER_CPP_DIR / "models",
     Path("/usr/share/yt-transcriber/models"),
     Path("/usr/local/share/whisper.cpp/models"),
 )
 
-HISTORY_FILE  = Path.home() / ".config/yt-transcriber/history.json"
+HISTORY_FILE  = config_dir() / "history.json"
 
 AUDIO_FORMATS = (
     "Audio/Video (*.mp3 *.mp4 *.wav *.flac *.ogg *.opus *.m4a *.webm *.aac "
@@ -1682,7 +1689,8 @@ class MainWindow(QMainWindow):
     def _open_output(self):
         p = self.out_input.text() or str(DEFAULT_OUT)
         os.makedirs(p, exist_ok=True)
-        subprocess.Popen(["xdg-open", p])
+        if not open_path(p):
+            self._log("⚠  Impossibile aprire la cartella output.", GOLD)
 
     def _open_output_folder(self):
         p = self.out_input.text().strip() or str(DEFAULT_OUT)
@@ -1696,7 +1704,8 @@ class MainWindow(QMainWindow):
         except Exception:
             self._log("⚠  Impossibile aprire la cartella output.", GOLD)
             return
-        subprocess.Popen(["xdg-open", str(target)])
+        if not open_path(target):
+            self._log("⚠  Impossibile aprire la cartella output.", GOLD)
 
     def _open_claude(self):
         import webbrowser, shutil
@@ -1713,10 +1722,10 @@ class MainWindow(QMainWindow):
                 if result.returncode == 0:
                     self._log(f"→  percorso copiato negli appunti: {latest.name}", GREEN_DIM)
                 else:
-                    subprocess.Popen(["xdg-open", str(out_dir)])
+                    open_path(out_dir)
                     self._log(f"→  xclip fallito (rc={result.returncode}) — cartella output aperta", GOLD)
             else:
-                subprocess.Popen(["xdg-open", str(out_dir)])
+                open_path(out_dir)
                 self._log(f"→  xclip non trovato — cartella output aperta ({latest.name})", GOLD)
         else:
             self._log("→  nessun file .docx trovato nella cartella output", GOLD)
@@ -2007,7 +2016,8 @@ class MainWindow(QMainWindow):
         elif action == open_act:
             p = data.get("output", str(DEFAULT_OUT))
             os.makedirs(p, exist_ok=True)
-            subprocess.Popen(["xdg-open", p])
+            if not open_path(p):
+                self._log("⚠  Impossibile aprire la cartella output.", GOLD)
         elif action == del_act:
             self._history = [h for h in self._history if h.get("url") != data.get("url")]
             save_history(self._history); self._refresh_history()

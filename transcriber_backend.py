@@ -19,15 +19,22 @@ import shutil
 import subprocess
 import platform
 from pathlib import Path
+from platform_paths import (
+    app_whisper_cpp_bin,
+    app_whisper_cpp_dir,
+    is_windows,
+    user_venv_dir,
+    user_venv_python,
+)
 
 # ── Costanti ──────────────────────────────────────────────────────────────────
-IS_WINDOWS = platform.system() == "Windows"
+IS_WINDOWS = is_windows()
 IS_LINUX   = platform.system() == "Linux"
 HOME       = Path.home()
-USER_VENV_DIR = HOME / ".local/share/yt-transcriber/venv"
-USER_VENV_PYTHON = USER_VENV_DIR / ("Scripts/python.exe" if IS_WINDOWS else "bin/python")
-APP_WHISPER_CPP_DIR = HOME / ".local/share/yt-transcriber/whisper.cpp"
-APP_WHISPER_CPP_BIN = APP_WHISPER_CPP_DIR / ("build/bin/whisper-cli.exe" if IS_WINDOWS else "build/bin/whisper-cli")
+USER_VENV_DIR = user_venv_dir()
+USER_VENV_PYTHON = user_venv_python()
+APP_WHISPER_CPP_DIR = app_whisper_cpp_dir()
+APP_WHISPER_CPP_BIN = app_whisper_cpp_bin()
 
 def _normalize_whisper_model_input(model_value: str | None) -> tuple[Path, str]:
     """Ritorna il path modello risolto e il filename ggml per il modello app-managed."""
