@@ -29,6 +29,11 @@ if [[ $CHECK_ONLY -eq 1 ]]; then
   # CHECK_ONLY_START
   echo "==> Check-only: nessuna modifica verra' eseguita"
   echo "    Python venv atteso: $VENV_PYTHON"
+  if python3 -m venv --help >/dev/null 2>&1; then
+    echo "    Stato modulo venv: disponibile"
+  else
+    echo "    Stato modulo venv: assente (installa python3-venv)"
+  fi
   if [[ -d "$VENV_DIR" ]]; then
     echo "    Stato venv dir: presente"
   else
@@ -48,6 +53,12 @@ if [[ $CHECK_ONLY -eq 1 ]]; then
   echo "    Stato modello $MODEL_NAME: verifica senza download non disponibile"
   # CHECK_ONLY_END
   exit 0
+fi
+
+if ! python3 -m venv --help >/dev/null 2>&1; then
+  echo "ERRORE: modulo venv non disponibile in python3." >&2
+  echo "Installa il pacchetto python3-venv e riprova." >&2
+  exit 1
 fi
 
 mkdir -p "$(dirname "$VENV_DIR")"

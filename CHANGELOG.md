@@ -2,6 +2,11 @@
 
 Questo file riassume in modo sintetico le variazioni documentabili del progetto.
 
+## v1.2.1 - Fix minori backend manager Linux
+
+- Corretta la normalizzazione di `WHISPER_MODEL` con short-name come `medium` anche per backend `whisper.cpp` esistenti non app-managed.
+- Aggiunto un messaggio piu' chiaro se manca `python3-venv` durante il setup di `faster-whisper`.
+
 ## v1.2.0 - Setup guidato backend Whisper
 
 - Aggiunta GUI `Configura backend Whisper`.

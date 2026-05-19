@@ -30,17 +30,18 @@ APP_WHISPER_CPP_DIR = HOME / ".local/share/yt-transcriber/whisper.cpp"
 APP_WHISPER_CPP_BIN = APP_WHISPER_CPP_DIR / ("build/bin/whisper-cli.exe" if IS_WINDOWS else "build/bin/whisper-cli")
 
 def _normalize_whisper_model_input(model_value: str | None) -> tuple[Path, str]:
-    """Ritorna il path legacy e il filename ggml per il modello app-managed."""
+    """Ritorna il path modello risolto e il filename ggml per il modello app-managed."""
     raw = (model_value or "").strip()
     if not raw:
         raw = str(HOME / "whisper.cpp/models/ggml-medium.bin")
 
-    model_path = Path(raw).expanduser()
+    resolved_model_path = Path(raw).expanduser()
     if "/" in raw or "\\" in raw or raw.endswith(".bin"):
-        app_model_name = model_path.name or "ggml-medium.bin"
+        app_model_name = resolved_model_path.name or "ggml-medium.bin"
     else:
         app_model_name = f"ggml-{raw}.bin"
-    return model_path, app_model_name
+        resolved_model_path = HOME / "whisper.cpp/models" / app_model_name
+    return resolved_model_path, app_model_name
 
 
 # Percorsi whisper.cpp — personalizzabili via env
