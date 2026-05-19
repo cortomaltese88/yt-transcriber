@@ -1263,9 +1263,14 @@ class MainWindow(QMainWindow):
         self.setup_backend_btn.setVisible(show_setup_btn)
         self.setup_backend_btn.setEnabled(show_setup_btn and self._setup_process is None)
         if show_setup_btn:
-            self.setup_backend_btn.setToolTip(
-                "Configura whisper.cpp (consigliato) oppure faster-whisper (fallback)."
-            )
+            if is_windows():
+                self.setup_backend_btn.setToolTip(
+                    "Configura faster-whisper in venv utente. whisper.cpp guidato non e' ancora disponibile su Windows."
+                )
+            else:
+                self.setup_backend_btn.setToolTip(
+                    "Configura whisper.cpp (consigliato) oppure faster-whisper (fallback)."
+                )
         self._update_run_btn()
 
     # ── Slot UI ───────────────────────────────────────────────────────────────
@@ -1383,11 +1388,18 @@ class MainWindow(QMainWindow):
 
         box = QMessageBox(self)
         box.setWindowTitle("Configura backend Whisper")
-        box.setText(
-            "Scegli come configurare il backend Whisper.\n\n"
-            "whisper.cpp: backend consigliato, usa whisper-cli e modelli ggml.\n"
-            "faster-whisper: alternativa Python in venv utente, più semplice se whisper.cpp non è disponibile o non si compila."
-        )
+        if is_windows():
+            box.setText(
+                "Scegli come preparare il backend Whisper.\n\n"
+                "faster-whisper: setup guidato disponibile in venv utente tramite PowerShell e Python installato dall'utente.\n"
+                "whisper.cpp: setup guidato Windows non ancora integrato nella GUI."
+            )
+        else:
+            box.setText(
+                "Scegli come configurare il backend Whisper.\n\n"
+                "whisper.cpp: backend consigliato, usa whisper-cli e modelli ggml.\n"
+                "faster-whisper: alternativa Python in venv utente, utile se whisper.cpp non e' disponibile o non si compila."
+            )
         whisper_btn = box.addButton("Installa whisper.cpp", QMessageBox.ButtonRole.AcceptRole)
         faster_btn = box.addButton("Installa faster-whisper", QMessageBox.ButtonRole.ActionRole)
         cancel_btn = box.addButton("Annulla", QMessageBox.ButtonRole.RejectRole)
@@ -1419,14 +1431,25 @@ class MainWindow(QMainWindow):
         elif clicked == faster_btn:
             script_path = resolve_setup_faster_whisper_script()
             setup_label = "faster-whisper"
-            setup_note = (
-                "Vuoi installare faster-whisper e scaricare/verificare il modello selezionato?\n\n"
-                "- non serve sudo\n"
-                "- non viene modificato Python di sistema\n"
-                "- verra' creato ~/.local/share/yt-transcriber/venv\n"
-                "- serve connessione internet\n"
-                "- il download del modello puo' richiedere tempo"
-            )
+            if is_windows():
+                setup_note = (
+                    "Vuoi preparare faster-whisper e scaricare/verificare il modello selezionato?\n\n"
+                    "- non serve admin\n"
+                    "- non viene modificato Python di sistema\n"
+                    "- usa PowerShell e Python installato dall'utente\n"
+                    "- verra' preparato un venv utente in AppData\\Local\\yt-transcriber\\venv\n"
+                    "- serve connessione internet\n"
+                    "- il download del modello puo' richiedere tempo"
+                )
+            else:
+                setup_note = (
+                    "Vuoi installare faster-whisper e scaricare/verificare il modello selezionato?\n\n"
+                    "- non serve sudo\n"
+                    "- non viene modificato Python di sistema\n"
+                    "- verra' creato ~/.local/share/yt-transcriber/venv\n"
+                    "- serve connessione internet\n"
+                    "- il download del modello puo' richiedere tempo"
+                )
         else:
             return
 
