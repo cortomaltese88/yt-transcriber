@@ -2,7 +2,15 @@
 set -euo pipefail
 
 APP_DIR="${YT_TRANSCRIBER_APP_WHISPER_DIR:-$HOME/.local/share/yt-transcriber/whisper.cpp}"
-MODEL_NAME="${1:-medium}"
+CHECK_ONLY=0
+MODEL_NAME="medium"
+if [[ "${1:-}" == "--check-only" ]]; then
+  CHECK_ONLY=1
+  shift
+fi
+if [[ -n "${1:-}" ]]; then
+  MODEL_NAME="$1"
+fi
 BIN_PATH="$APP_DIR/build/bin/whisper-cli"
 MODEL_PATH="$APP_DIR/models/ggml-${MODEL_NAME}.bin"
 REPO_URL="https://github.com/ggml-org/whisper.cpp.git"
@@ -10,6 +18,9 @@ REPO_URL="https://github.com/ggml-org/whisper.cpp.git"
 echo "==> Setup whisper.cpp in home utente"
 echo "    repo: $APP_DIR"
 echo "    modello: $MODEL_NAME"
+if [[ $CHECK_ONLY -eq 1 ]]; then
+  echo "    modalita': check-only"
+fi
 
 missing=()
 for cmd in git cmake make; do
@@ -22,6 +33,30 @@ if [[ ${#missing[@]} -gt 0 ]]; then
   echo "ERRORE: mancano dipendenze di build: ${missing[*]}" >&2
   echo "Installa le dipendenze con: sudo apt install git cmake g++ make" >&2
   exit 1
+fi
+
+if [[ $CHECK_ONLY -eq 1 ]]; then
+  # CHECK_ONLY_START
+  echo "==> Check-only: nessuna modifica verra' eseguita"
+  echo "    Binario atteso: $BIN_PATH"
+  echo "    Modello atteso: $MODEL_PATH"
+  if [[ -d "$APP_DIR" ]]; then
+    echo "    Stato repo dir: presente"
+  else
+    echo "    Stato repo dir: assente"
+  fi
+  if [[ -x "$BIN_PATH" ]]; then
+    echo "    Stato whisper-cli: presente"
+  else
+    echo "    Stato whisper-cli: assente"
+  fi
+  if [[ -f "$MODEL_PATH" ]]; then
+    echo "    Stato modello: presente"
+  else
+    echo "    Stato modello: assente"
+  fi
+  # CHECK_ONLY_END
+  exit 0
 fi
 
 mkdir -p "$(dirname "$APP_DIR")"

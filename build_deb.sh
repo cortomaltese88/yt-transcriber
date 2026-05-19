@@ -73,9 +73,11 @@ case "${1:-}" in
     --help|-h)
         exec bash "$APP_DIR/yt-transcriber.sh" --help ;;
     --setup-whisper-cpp)
-        exec bash "$APP_DIR/scripts/setup_whisper_cpp.sh" ;;
+        shift
+        exec bash "$APP_DIR/scripts/setup_whisper_cpp.sh" "$@" ;;
     --setup-faster-whisper)
-        exec bash "$APP_DIR/scripts/setup_faster_whisper_venv.sh" ;;
+        shift
+        exec bash "$APP_DIR/scripts/setup_faster_whisper_venv.sh" "$@" ;;
     http*|--local)
         exec bash "$APP_DIR/yt-transcriber.sh" "$@" ;;
     *)

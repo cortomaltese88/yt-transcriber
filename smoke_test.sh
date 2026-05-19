@@ -164,16 +164,25 @@ run_check "Backend: faster-whisper venv utente presente" grep -Fq 'faster-whispe
 run_check "Setup whisper.cpp: script presente" test -f scripts/setup_whisper_cpp.sh
 run_check "Setup whisper.cpp: build path presente" grep -Fq '.local/share/yt-transcriber/whisper.cpp' scripts/setup_whisper_cpp.sh
 run_check "Setup whisper.cpp: launcher presente" grep -Fq -- '--setup-whisper-cpp' build_deb.sh
+run_check "Setup whisper.cpp: check-only presente" grep -Fq -- '--check-only' scripts/setup_whisper_cpp.sh
+run_check "Setup whisper.cpp: check-only senza git clone" bash -lc '! awk '"'"'/CHECK_ONLY_START/,/CHECK_ONLY_END/'"'"' scripts/setup_whisper_cpp.sh | grep -Fq "git clone"'
+run_check "Setup whisper.cpp: check-only senza cmake" bash -lc '! awk '"'"'/CHECK_ONLY_START/,/CHECK_ONLY_END/'"'"' scripts/setup_whisper_cpp.sh | grep -Fq "cmake"'
 run_check "Setup whisper.cpp: niente sudo automatico" bash -lc '! grep -Eq "^[[:space:]]*sudo[[:space:]]" scripts/setup_whisper_cpp.sh'
 run_check "Setup whisper.cpp: verifica runtime senza || true" bash -lc '! grep -Fq "\"$BIN_PATH\" --help >/dev/null 2>&1 || true" scripts/setup_whisper_cpp.sh'
 run_check "Setup faster-whisper venv: script presente" test -f scripts/setup_faster_whisper_venv.sh
 run_check "Setup faster-whisper venv: riferimento percorso presente" grep -Fq '.local/share/yt-transcriber/venv' scripts/setup_faster_whisper_venv.sh
 run_check "Setup faster-whisper venv: MODEL_NAME presente" grep -Fq 'MODEL_NAME=' scripts/setup_faster_whisper_venv.sh
 run_check "Setup faster-whisper venv: WhisperModel presente" grep -Fq 'WhisperModel' scripts/setup_faster_whisper_venv.sh
+run_check "Setup faster-whisper venv: check-only presente" grep -Fq -- '--check-only' scripts/setup_faster_whisper_venv.sh
+run_check "Setup faster-whisper venv: check-only senza pip install" bash -lc '! awk '"'"'/CHECK_ONLY_START/,/CHECK_ONLY_END/'"'"' scripts/setup_faster_whisper_venv.sh | grep -Fq "pip install"'
 run_check "Setup faster-whisper venv: niente break-system-packages" bash -lc '! grep -RIn -- "--break-system-packages" transcriber_backend.py yt-transcriber.sh scripts/setup_faster_whisper_venv.sh'
 run_check "Packaging: python3-venv presente in build_deb.sh" grep -Fq 'python3-venv' build_deb.sh
+run_check "Packaging: setup whisper.cpp inoltra argomenti" grep -Fq 'exec bash "$APP_DIR/scripts/setup_whisper_cpp.sh" "$@"' build_deb.sh
+run_check "Packaging: setup faster-whisper inoltra argomenti" grep -Fq 'exec bash "$APP_DIR/scripts/setup_faster_whisper_venv.sh" "$@"' build_deb.sh
 run_check "README: setup whisper.cpp presente" grep -Fq 'yt-transcriber --setup-whisper-cpp' README.md
 run_check "README: setup faster-whisper presente" grep -Fq 'yt-transcriber --setup-faster-whisper' README.md
+run_check "README: check-only setup whisper.cpp presente" grep -Fq 'yt-transcriber --setup-whisper-cpp --check-only' README.md
+run_check "README: check-only setup faster-whisper presente" grep -Fq 'yt-transcriber --setup-faster-whisper --check-only' README.md
 run_check "GUI: toggle Normalizza audio presente" grep -Fq 'Normalizza audio' yt-transcriber_gui.py
 run_check "GUI file locale: campo editabile/incollabile" grep -Fq 'self.file_input = MatrixInput("Seleziona un file audio o video…")' yt-transcriber_gui.py
 run_check "GUI file locale: validazione is_file presente" grep -Fq 'path.is_file()' yt-transcriber_gui.py

@@ -142,6 +142,7 @@ Da pacchetto `.deb` installato:
 
 ```bash
 yt-transcriber --setup-whisper-cpp
+yt-transcriber --setup-whisper-cpp --check-only
 ```
 
 ### Configurazione opzionale faster-whisper in venv utente
@@ -164,7 +165,10 @@ Da pacchetto `.deb` installato:
 
 ```bash
 yt-transcriber --setup-faster-whisper
+yt-transcriber --setup-faster-whisper --check-only
 ```
+
+L'opzione `--check-only` esegue solo una verifica dei prerequisiti e dei path attesi, senza installare pacchetti, creare venv, compilare o scaricare modelli.
 
 ### Ricerca automatica di `whisper-cli`
 
