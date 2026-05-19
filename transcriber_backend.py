@@ -8,9 +8,10 @@ Ordine di preferenza:
   2. whisper.cpp CUDA    (Linux/Windows, GPU Nvidia)
   3. whisper.cpp CPU     (Linux/Windows, CPU only)
   4. whisper.cpp gestito dall'app (CPU)
-  5. faster-whisper      (Python, CPU/CUDA, fallback universale)
-  6. faster-whisper venv utente
-  7. openai-whisper      (Python, CPU, ultimo fallback)
+  5. whisper.cpp manuale via env
+  6. faster-whisper      (Python, CPU/CUDA, fallback universale)
+  7. faster-whisper venv utente
+  8. openai-whisper      (Python, CPU, ultimo fallback)
 """
 
 import os
@@ -35,6 +36,8 @@ USER_VENV_DIR = user_venv_dir()
 USER_VENV_PYTHON = user_venv_python()
 APP_WHISPER_CPP_DIR = app_whisper_cpp_dir()
 APP_WHISPER_CPP_BIN = app_whisper_cpp_bin()
+YT_TRANSCRIBER_WHISPER_BIN_ENV = "YT_TRANSCRIBER_WHISPER_BIN"
+YT_TRANSCRIBER_WHISPER_MODEL_ENV = "YT_TRANSCRIBER_WHISPER_MODEL"
 
 def _normalize_whisper_model_input(model_value: str | None) -> tuple[Path, str]:
     """Ritorna il path modello risolto e il filename ggml per il modello app-managed."""
@@ -90,6 +93,28 @@ def _venv_has_module(python_path: Path, module_name: str) -> bool:
         return False
 
 
+def _manual_whisper_backend() -> dict | None:
+    bin_value = os.environ.get(YT_TRANSCRIBER_WHISPER_BIN_ENV, "").strip()
+    model_value = os.environ.get(YT_TRANSCRIBER_WHISPER_MODEL_ENV, "").strip()
+    if not bin_value or not model_value:
+        return None
+
+    bin_path = Path(bin_value).expanduser()
+    model_path = Path(model_value).expanduser()
+    if not bin_path.is_file() or not model_path.is_file():
+        return None
+    if model_path.suffix.lower() != ".bin":
+        return None
+
+    return {
+        "type":  "whisper_manual",
+        "bin":   bin_path,
+        "model": model_path,
+        "info":  "whisper.cpp (manuale)",
+        "fast":  False,
+    }
+
+
 # ── Rilevamento backend ────────────────────────────────────────────────────────
 def detect_backend() -> dict:
     """
@@ -140,7 +165,12 @@ def detect_backend() -> dict:
                 "fast":  False,
             }
 
-    # 5. faster-whisper
+    # 5. whisper.cpp manuale via env
+    manual_backend = _manual_whisper_backend()
+    if manual_backend is not None:
+        return manual_backend
+
+    # 6. faster-whisper
     try:
         import faster_whisper
         return {
@@ -153,7 +183,7 @@ def detect_backend() -> dict:
     except ImportError:
         pass
 
-    # 6. faster-whisper nel venv utente
+    # 7. faster-whisper nel venv utente
     if _venv_has_module(USER_VENV_PYTHON, "faster_whisper"):
         return {
             "type":   "faster_whisper_venv",
@@ -164,7 +194,7 @@ def detect_backend() -> dict:
             "fast":   False,
         }
 
-    # 7. openai-whisper
+    # 8. openai-whisper
     try:
         import whisper
         return {
@@ -217,7 +247,7 @@ def transcribe(
 
     btype = backend["type"]
 
-    if btype in ("whisper_vulkan", "whisper_cuda", "whisper_cpu", "whisper_app_cpu"):
+    if btype in ("whisper_vulkan", "whisper_cuda", "whisper_cpu", "whisper_app_cpu", "whisper_manual"):
         return _transcribe_whisper_cpp(
             audio_path, output_srt, lang, threads,
             backend, progress_callback, log_callback
