@@ -29,11 +29,24 @@ USER_VENV_PYTHON = USER_VENV_DIR / ("Scripts/python.exe" if IS_WINDOWS else "bin
 APP_WHISPER_CPP_DIR = HOME / ".local/share/yt-transcriber/whisper.cpp"
 APP_WHISPER_CPP_BIN = APP_WHISPER_CPP_DIR / ("build/bin/whisper-cli.exe" if IS_WINDOWS else "build/bin/whisper-cli")
 
+def _normalize_whisper_model_input(model_value: str | None) -> tuple[Path, str]:
+    """Ritorna il path legacy e il filename ggml per il modello app-managed."""
+    raw = (model_value or "").strip()
+    if not raw:
+        raw = str(HOME / "whisper.cpp/models/ggml-medium.bin")
+
+    model_path = Path(raw).expanduser()
+    if "/" in raw or "\\" in raw or raw.endswith(".bin"):
+        app_model_name = model_path.name or "ggml-medium.bin"
+    else:
+        app_model_name = f"ggml-{raw}.bin"
+    return model_path, app_model_name
+
+
 # Percorsi whisper.cpp — personalizzabili via env
-WHISPER_MODEL = Path(os.environ.get(
-    "WHISPER_MODEL",
-    str(HOME / "whisper.cpp/models/ggml-medium.bin")
-))
+WHISPER_MODEL, APP_WHISPER_MODEL_NAME = _normalize_whisper_model_input(
+    os.environ.get("WHISPER_MODEL")
+)
 
 WHISPER_BINS = {
     "vulkan": Path(os.environ.get(
@@ -52,7 +65,7 @@ WHISPER_BINS = {
         (".exe" if IS_WINDOWS else "")
     )),
 }
-APP_WHISPER_MODEL = APP_WHISPER_CPP_DIR / "models" / WHISPER_MODEL.name
+APP_WHISPER_MODEL = APP_WHISPER_CPP_DIR / "models" / APP_WHISPER_MODEL_NAME
 
 
 def _venv_has_module(python_path: Path, module_name: str) -> bool:

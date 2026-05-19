@@ -158,6 +158,8 @@ run_check "GUI Whisper: dialog backend presente" grep -Fq 'Configura backend Whi
 run_check "GUI Whisper: run button bloccato senza backend" grep -Fq 'self.run_btn.setEnabled(ok and backend_ready)' yt-transcriber_gui.py
 run_check "GUI Whisper: closeEvent protegge setup attivo" grep -Fq 'Setup backend in corso. Vuoi interromperlo e chiudere yt-transcriber?' yt-transcriber_gui.py
 run_check "Backend: whisper.cpp gestito dall'app presente" grep -Fq 'whisper.cpp (gestito dall'"'"'app)' transcriber_backend.py
+run_check "Backend: helper normalizzazione modello presente" grep -Fq 'def _normalize_whisper_model_input' transcriber_backend.py
+run_check "Backend: logica ggml app-managed presente" grep -Fq 'APP_WHISPER_MODEL = APP_WHISPER_CPP_DIR / "models" / APP_WHISPER_MODEL_NAME' transcriber_backend.py
 run_check "Backend: faster-whisper venv utente presente" grep -Fq 'faster-whisper (venv utente)' transcriber_backend.py
 run_check "Setup whisper.cpp: script presente" test -f scripts/setup_whisper_cpp.sh
 run_check "Setup whisper.cpp: build path presente" grep -Fq '.local/share/yt-transcriber/whisper.cpp' scripts/setup_whisper_cpp.sh
