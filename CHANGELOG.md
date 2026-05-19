@@ -2,6 +2,21 @@
 
 Questo file riassume in modo sintetico le variazioni documentabili del progetto.
 
+## v1.2.0 - Setup guidato backend Whisper
+
+- Aggiunta GUI `Configura backend Whisper`.
+- `whisper.cpp` installabile e configurabile come backend consigliato in home utente.
+- `faster-whisper` installabile come fallback Python in venv utente.
+- Aggiunti i comandi `yt-transcriber --setup-whisper-cpp` e `yt-transcriber --setup-faster-whisper`.
+- Aggiunta la modalita' `--check-only` per gli script setup backend.
+- Nessun `sudo` automatico.
+- Nessun uso di `pip --break-system-packages`.
+- Aggiunto il rilevamento backend app-managed `whisper_app_cpu`.
+- Aggiunto il rilevamento backend app-managed `faster_whisper_venv`.
+- Migliorata la gestione della chiusura GUI durante setup.
+- Rafforzata la verifica runtime di `whisper-cli`.
+- Normalizzato `WHISPER_MODEL=medium` per il modello app-managed.
+
 ## v1.1.5 - Portabilita' Linux migliorata
 
 - yt-dlp non e' piu' obbligatorio per la trascrizione di file locali.

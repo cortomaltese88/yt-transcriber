@@ -5,7 +5,7 @@
 # yt-transcriber
 
 **Pipeline Trascrizione Audio/Video — Studio GD LEX**  
-Versione 1.1.5 · 2026 · Licenza: GPL-3.0-or-later
+Versione 1.2.0 · 2026 · Licenza: GPL-3.0-or-later
 
 ---
 
@@ -123,6 +123,8 @@ L'installazione e la configurazione di `whisper.cpp` restano a carico dell'utent
 Per i file locali `yt-dlp` non è necessario. Per URL video / sorgenti online, `yt-dlp` resta invece necessario.
 
 `whisper.cpp` resta il backend consigliato. Se non è disponibile, la pipeline shell può usare un backend Python basato su `faster-whisper`, incluso un venv utente dedicato, ma il backend di trascrizione resta comunque esterno al pacchetto `.deb`.
+
+In `v1.2.0` il progetto introduce un backend manager Linux con setup guidato per `whisper.cpp` e `faster-whisper`, incluso controllo preliminare `--check-only` per entrambi gli script di setup.
 
 ### Configurazione consigliata whisper.cpp in home utente
 
