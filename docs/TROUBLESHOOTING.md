@@ -68,6 +68,13 @@ python3 transcriber_backend.py
 
 Controllare anche le variabili ambiente `YT_TRANSCRIBER_WHISPER_BIN` e `YT_TRANSCRIBER_WHISPER_MODEL`, oppure la presenza di un backend Python compatibile.
 
+Su Windows, se si usa `whisper.cpp` manuale:
+
+- `YT_TRANSCRIBER_WHISPER_BIN` deve puntare a `whisper-cli.exe`
+- `YT_TRANSCRIBER_WHISPER_MODEL` deve puntare a un file `.bin`
+- dopo la modifica delle variabili ambiente utente conviene chiudere e riaprire la GUI
+- il setup guidato Windows oggi copre `faster-whisper`, non `whisper.cpp`
+
 ## Export DOCX non riuscito
 
 Possibili cause:

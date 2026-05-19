@@ -210,6 +210,28 @@ export YT_TRANSCRIBER_WHISPER_MODEL="$HOME/whisper.cpp/models/ggml-medium.bin"
 yt-transcriber
 ```
 
+### Supporto manuale whisper.cpp su Windows
+
+Su Windows non e' ancora disponibile un setup guidato per `whisper.cpp`.
+
+Se si dispone gia' di `whisper-cli.exe` e di un modello `.bin`, `yt-transcriber` puo' rilevarli tramite variabili ambiente utente:
+
+- `YT_TRANSCRIBER_WHISPER_BIN`
+- `YT_TRANSCRIBER_WHISPER_MODEL`
+
+Entrambi i path devono puntare a file esistenti e il modello deve essere un file `.bin`.
+
+Esempio PowerShell:
+
+```powershell
+[Environment]::SetEnvironmentVariable("YT_TRANSCRIBER_WHISPER_BIN", "C:\percorso\whisper-cli.exe", "User")
+[Environment]::SetEnvironmentVariable("YT_TRANSCRIBER_WHISPER_MODEL", "C:\percorso\ggml-medium.bin", "User")
+```
+
+Dopo aver aggiornato le variabili ambiente, chiudere e riaprire la GUI.
+
+Nota: il setup guidato Windows attualmente riguarda `faster-whisper`, non `whisper.cpp`.
+
 ### Installazione di whisper.cpp
 
 Questo resta il passaggio più complesso. In uno scenario tipico `whisper.cpp` viene compilato manualmente e posizionato in `~/whisper.cpp/`.
