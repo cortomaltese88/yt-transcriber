@@ -152,6 +152,8 @@ run_check "GUI Whisper: modello base presente" grep -Fq '("base",' yt-transcribe
 run_check "GUI Whisper: modello small presente" grep -Fq '("small",' yt-transcriber_gui.py
 run_check "GUI Whisper: modello medium presente" grep -Fq '("medium",' yt-transcriber_gui.py
 run_check "GUI Whisper: modello large presente" grep -Fq '("large",' yt-transcriber_gui.py
+run_check "GUI Whisper: warning modello mancante presente" grep -Fq 'Modello whisper.cpp mancante:' yt-transcriber_gui.py
+run_check "GUI Whisper: suggerimento installa modello presente" grep -Fq 'Installa il modello' yt-transcriber_gui.py
 run_check "GUI Whisper: fallback faster-whisper presente" grep -Fq 'Fallback Python disponibile:' yt-transcriber_gui.py
 run_check "GUI Whisper: warning backend mancante presente" grep -Fq 'Configura whisper.cpp oppure installa faster-whisper.' yt-transcriber_gui.py
 run_check "GUI Whisper: pulsante setup presente" grep -Fq 'Configura backend Whisper' yt-transcriber_gui.py
@@ -171,7 +173,40 @@ run_check "Backend Python: niente medium hardcoded in faster-whisper" bash -lc '
 run_check "Backend Python: niente medium hardcoded in openai-whisper" bash -lc '! grep -Fq '\''load_model("medium")'\'' transcriber_backend.py'
 run_check "Pipeline Whisper: preserva modello per backend Python" grep -Fq 'WHISPER_MODEL="$MODEL_NAME"' yt-transcriber.sh
 run_check "Pipeline Whisper: log modello selezionato presente" grep -Fq 'Modello Whisper selezionato:' yt-transcriber.sh
+if python3 - <<'PY' >/dev/null 2>&1
+import re
+from pathlib import Path
+
+source = Path("yt-transcriber_gui.py").read_text(encoding="utf-8")
+match = re.search(
+    r"def _normalize_model_filename\(model_name\):\n(?P<body>(?:    .*\n)+)",
+    source,
+)
+if not match:
+    raise SystemExit(1)
+namespace = {}
+exec("def _normalize_model_filename(model_name):\n" + match.group("body"), namespace)
+fn = namespace["_normalize_model_filename"]
+expected = {
+    "tiny": "ggml-tiny.bin",
+    "base": "ggml-base.bin",
+    "small": "ggml-small.bin",
+    "medium": "ggml-medium.bin",
+    "large": "ggml-large-v3.bin",
+}
+for model, filename in expected.items():
+    if fn(model) != filename:
+        raise SystemExit(1)
+PY
+then
+  ok "Mapping ggml: tiny/base/small/medium/large"
+else
+  ko "Mapping ggml: tiny/base/small/medium/large"
+fi
 run_check "Setup whisper.cpp: script presente" test -f scripts/setup_whisper_cpp.sh
+run_check "Setup whisper.cpp: normalizzazione modello presente" grep -Fq 'normalize_model_name()' scripts/setup_whisper_cpp.sh
+run_check "Setup whisper.cpp: supporta tiny/base/small/medium" grep -Fq 'tiny|base|small|medium' scripts/setup_whisper_cpp.sh
+run_check "Setup whisper.cpp: supporta large/large-v3" grep -Fq 'large|large-v3' scripts/setup_whisper_cpp.sh
 run_check "Setup whisper.cpp: build path presente" grep -Fq '.local/share/yt-transcriber/whisper.cpp' scripts/setup_whisper_cpp.sh
 run_check "Setup whisper.cpp: launcher presente" grep -Fq -- '--setup-whisper-cpp' build_deb.sh
 run_check "Setup whisper.cpp: check-only presente" grep -Fq -- '--check-only' scripts/setup_whisper_cpp.sh

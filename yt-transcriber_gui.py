@@ -194,6 +194,19 @@ def _resolve_model_candidate_paths(model_name):
     return [base / filename for base in WHISPER_MODEL_BASE_DIRS], filename
 
 
+def _display_model_name(model_name):
+    raw = (model_name or "").strip()
+    if not raw:
+        return "base"
+    if raw.endswith(".bin"):
+        raw = raw[:-4]
+    if raw.startswith("ggml-"):
+        raw = raw[5:]
+    if raw == "large-v3":
+        return "large"
+    return raw
+
+
 def resolve_whisper_bin():
     issues = []
     env_name = None
@@ -1198,6 +1211,7 @@ class MainWindow(QMainWindow):
 
         model_path, model_label, model_issues = resolve_whisper_model(self._whisper_model)
         issues.extend(model_issues)
+        model_missing = model_path is None
         if model_path is None and not uses_python_fallback:
             missing.append(model_label)
             details.append(f"modello {model_label} non configurato")
@@ -1216,6 +1230,8 @@ class MainWindow(QMainWindow):
             "backend_type": backend_type,
             "backend_label": backend_label,
             "uses_python_fallback": uses_python_fallback,
+            "model_missing": model_missing,
+            "selected_model": _display_model_name(self._whisper_model),
         }
 
     def _backend_warning_message(self, status):
@@ -1227,6 +1243,13 @@ class MainWindow(QMainWindow):
             return "\n".join(lines)
         if missing:
             lines.append(f"missing: {', '.join(missing)}")
+        if status.get("model_missing"):
+            model_label = status.get("model_label", "ggml-base.bin")
+            selected_model = status.get("selected_model", "base")
+            lines.append(f"Modello whisper.cpp mancante: {model_label}")
+            lines.append(
+                f"Installa il modello {selected_model} dalla configurazione backend Whisper."
+            )
         if status.get("issues"):
             lines.extend(status["issues"])
         if missing:
@@ -1259,7 +1282,12 @@ class MainWindow(QMainWindow):
             self.dep_badge.setToolTip(tooltip)
         else:
             warning_text = self._backend_warning_message(status)
-            self.dep_badge.setText(f"⚠  missing: {', '.join(status['missing'])}")
+            if status.get("model_missing"):
+                self.dep_badge.setText(
+                    f"⚠  Modello whisper.cpp mancante: {status.get('model_label', 'ggml-base.bin')}"
+                )
+            else:
+                self.dep_badge.setText(f"⚠  missing: {', '.join(status['missing'])}")
             self.dep_badge.setStyleSheet(f"color:{GOLD};background:#1A1000;border:1px solid {GOLD};border-radius:3px;padding:4px 12px;font-family:{FONT_MONO};")
             self.dep_badge.setToolTip(warning_text)
             self._log(f"⚠  {warning_text.replace(chr(10), ' | ')}", GOLD)
@@ -1272,6 +1300,10 @@ class MainWindow(QMainWindow):
             if is_windows():
                 self.setup_backend_btn.setToolTip(
                     "Configura faster-whisper in venv utente. whisper.cpp guidato non e' ancora disponibile su Windows."
+                )
+            elif status.get("model_missing"):
+                self.setup_backend_btn.setToolTip(
+                    f"Installa o verifica il modello {status.get('selected_model', 'base')} per whisper.cpp."
                 )
             else:
                 self.setup_backend_btn.setToolTip(
@@ -1425,15 +1457,27 @@ class MainWindow(QMainWindow):
                 return
             script_path = resolve_setup_whisper_cpp_script()
             setup_label = "whisper.cpp"
-            setup_note = (
-                "Vuoi installare whisper.cpp in uno spazio utente dedicato e scaricare/verificare il modello selezionato?\n\n"
-                "- non serve sudo\n"
-                "- non viene modificato Python di sistema\n"
-                "- verra' creato ~/.local/share/yt-transcriber/whisper.cpp\n"
-                "- servono git, cmake, make e g++/c++\n"
-                "- serve connessione internet\n"
-                "- il download del modello puo' richiedere tempo"
-            )
+            if self._backend_status.get("model_missing"):
+                setup_note = (
+                    f"Modello whisper.cpp mancante: {self._backend_status.get('model_label', 'ggml-base.bin')}\n\n"
+                    f"Vuoi scaricare o verificare il modello {self._whisper_model} dalla configurazione backend Whisper?\n\n"
+                    "- non serve sudo\n"
+                    "- non viene modificato Python di sistema\n"
+                    "- verra' usato ~/.local/share/yt-transcriber/whisper.cpp\n"
+                    "- servono git, cmake, make e g++/c++\n"
+                    "- serve connessione internet\n"
+                    "- il download del modello puo' richiedere tempo"
+                )
+            else:
+                setup_note = (
+                    "Vuoi installare whisper.cpp in uno spazio utente dedicato e scaricare/verificare il modello selezionato?\n\n"
+                    "- non serve sudo\n"
+                    "- non viene modificato Python di sistema\n"
+                    "- verra' creato ~/.local/share/yt-transcriber/whisper.cpp\n"
+                    "- servono git, cmake, make e g++/c++\n"
+                    "- serve connessione internet\n"
+                    "- il download del modello puo' richiedere tempo"
+                )
         elif clicked == faster_btn:
             script_path = resolve_setup_faster_whisper_script()
             setup_label = "faster-whisper"

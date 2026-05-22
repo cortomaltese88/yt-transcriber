@@ -4,6 +4,22 @@ set -euo pipefail
 APP_DIR="${YT_TRANSCRIBER_APP_WHISPER_DIR:-$HOME/.local/share/yt-transcriber/whisper.cpp}"
 CHECK_ONLY=0
 MODEL_NAME="base"
+
+normalize_model_name() {
+  local raw="${1:-base}"
+  case "$raw" in
+    tiny|base|small|medium)
+      echo "$raw"
+      ;;
+    large|large-v3)
+      echo "large-v3"
+      ;;
+    *)
+      echo ""
+      ;;
+  esac
+}
+
 if [[ "${1:-}" == "--check-only" ]]; then
   CHECK_ONLY=1
   shift
@@ -11,6 +27,13 @@ fi
 if [[ -n "${1:-}" ]]; then
   MODEL_NAME="$1"
 fi
+MODEL_NAME_NORMALIZED="$(normalize_model_name "$MODEL_NAME")"
+if [[ -z "$MODEL_NAME_NORMALIZED" ]]; then
+  echo "ERRORE: modello non supportato: $MODEL_NAME" >&2
+  echo "Usa uno tra: tiny, base, small, medium, large" >&2
+  exit 1
+fi
+MODEL_NAME="$MODEL_NAME_NORMALIZED"
 BIN_PATH="$APP_DIR/build/bin/whisper-cli"
 MODEL_PATH="$APP_DIR/models/ggml-${MODEL_NAME}.bin"
 REPO_URL="https://github.com/ggml-org/whisper.cpp.git"
@@ -18,6 +41,9 @@ REPO_URL="https://github.com/ggml-org/whisper.cpp.git"
 echo "==> Setup whisper.cpp in home utente"
 echo "    repo: $APP_DIR"
 echo "    modello: $MODEL_NAME"
+if [[ "$MODEL_NAME" == "large-v3" ]]; then
+  echo "    alias richiesto: large -> large-v3"
+fi
 if [[ $CHECK_ONLY -eq 1 ]]; then
   echo "    modalita': check-only"
 fi
