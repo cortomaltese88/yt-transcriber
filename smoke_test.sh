@@ -41,10 +41,10 @@ else
   fi
 fi
 
-if python3 -m py_compile yt-transcriber_gui.py transcriber_backend.py set_lang_it.py >/dev/null 2>&1; then
-  ok "Python py_compile: yt-transcriber_gui.py, transcriber_backend.py, set_lang_it.py"
+if python3 -m py_compile yt-transcriber_gui.py transcriber_backend.py platform_paths.py set_lang_it.py >/dev/null 2>&1; then
+  ok "Python py_compile: yt-transcriber_gui.py, transcriber_backend.py, platform_paths.py, set_lang_it.py"
 else
-  ko "Python py_compile: yt-transcriber_gui.py, transcriber_backend.py, set_lang_it.py"
+  ko "Python py_compile: yt-transcriber_gui.py, transcriber_backend.py, platform_paths.py, set_lang_it.py"
 fi
 
 run_check "Sintassi JavaScript: make_docx_styled.js" node --check make_docx_styled.js
@@ -169,6 +169,9 @@ run_check "Backend: helper normalizzazione modello presente" grep -Fq 'def _norm
 run_check "Backend: helper modello richiesto presente" grep -Fq 'def _requested_model_name' transcriber_backend.py
 run_check "Backend: logica ggml app-managed presente" grep -Fq 'APP_WHISPER_MODEL = APP_WHISPER_CPP_DIR / "models" / APP_WHISPER_MODEL_NAME' transcriber_backend.py
 run_check "Backend: faster-whisper venv utente presente" grep -Fq 'faster-whisper (venv utente)' transcriber_backend.py
+run_check "Platform paths: file presente" test -f platform_paths.py
+run_check "Platform paths: import in GUI presente" grep -Fq 'from platform_paths import (' yt-transcriber_gui.py
+run_check "Platform paths: import in backend presente" grep -Fq 'from platform_paths import (' transcriber_backend.py
 run_check "Backend Python: niente medium hardcoded in faster-whisper" bash -lc '! grep -Fq '\''WhisperModel("medium"'\'' transcriber_backend.py'
 run_check "Backend Python: niente medium hardcoded in openai-whisper" bash -lc '! grep -Fq '\''load_model("medium")'\'' transcriber_backend.py'
 run_check "Pipeline Whisper: preserva modello per backend Python" grep -Fq 'WHISPER_MODEL="$MODEL_NAME"' yt-transcriber.sh
@@ -222,6 +225,7 @@ run_check "Setup faster-whisper venv: check-only presente" grep -Fq -- '--check-
 run_check "Setup faster-whisper venv: check-only senza pip install" bash -lc '! awk '"'"'/CHECK_ONLY_START/,/CHECK_ONLY_END/'"'"' scripts/setup_faster_whisper_venv.sh | grep -Fq "pip install"'
 run_check "Setup faster-whisper venv: niente break-system-packages" bash -lc '! grep -RIn -- "--break-system-packages" transcriber_backend.py yt-transcriber.sh scripts/setup_faster_whisper_venv.sh'
 run_check "Packaging: python3-venv presente in build_deb.sh" grep -Fq 'python3-venv' build_deb.sh
+run_check "Packaging: platform_paths.py incluso nel .deb" grep -Fq 'cp "$SOURCE_DIR/platform_paths.py"' build_deb.sh
 run_check "Packaging: setup whisper.cpp inoltra argomenti" grep -Fq 'exec bash "$APP_DIR/scripts/setup_whisper_cpp.sh" "$@"' build_deb.sh
 run_check "Packaging: setup faster-whisper inoltra argomenti" grep -Fq 'exec bash "$APP_DIR/scripts/setup_faster_whisper_venv.sh" "$@"' build_deb.sh
 run_check "README: setup whisper.cpp presente" grep -Fq 'yt-transcriber --setup-whisper-cpp' README.md
