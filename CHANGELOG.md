@@ -2,6 +2,14 @@
 
 Questo file riassume in modo sintetico le variazioni documentabili del progetto.
 
+## v1.2.2
+
+- Corretta propagazione del modello selezionato dalla GUI ai backend Whisper.
+- Migliorata gestione dei modelli whisper.cpp mancanti, con messaggi e dialog contestuali.
+- Incluso `platform_paths.py` nel pacchetto Debian.
+- Corretto il rilevamento backend Whisper/Vulkan quando manca il modello selezionato ma il backend e' disponibile.
+- Rafforzati smoke test e controlli statici sul packaging.
+
 ## v1.2.1 - Fix minori backend manager Linux
 
 - Corretta la normalizzazione di `WHISPER_MODEL` con short-name come `medium` anche per backend `whisper.cpp` esistenti non app-managed.
