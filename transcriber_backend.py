@@ -43,15 +43,37 @@ def _normalize_whisper_model_input(model_value: str | None) -> tuple[Path, str]:
     """Ritorna il path modello risolto e il filename ggml per il modello app-managed."""
     raw = (model_value or "").strip()
     if not raw:
-        raw = str(HOME / "whisper.cpp/models/ggml-medium.bin")
+        raw = str(HOME / "whisper.cpp/models/ggml-base.bin")
 
     resolved_model_path = Path(raw).expanduser()
     if "/" in raw or "\\" in raw or raw.endswith(".bin"):
-        app_model_name = resolved_model_path.name or "ggml-medium.bin"
+        app_model_name = resolved_model_path.name or "ggml-base.bin"
     else:
+        if raw == "large":
+            raw = "large-v3"
         app_model_name = f"ggml-{raw}.bin"
         resolved_model_path = HOME / "whisper.cpp/models" / app_model_name
     return resolved_model_path, app_model_name
+
+
+def _requested_model_name(default: str = "base") -> str:
+    """Ritorna il nome modello richiesto per backend Python."""
+    for raw in (
+        os.environ.get(YT_TRANSCRIBER_WHISPER_MODEL_ENV),
+        os.environ.get("WHISPER_MODEL"),
+    ):
+        value = (raw or "").strip()
+        if not value:
+            continue
+        name = Path(value).name if ("/" in value or "\\" in value or value.endswith(".bin")) else value
+        if name.startswith("ggml-"):
+            name = name[5:]
+        if name.endswith(".bin"):
+            name = name[:-4]
+        if name == "large-v3":
+            return "large"
+        return name
+    return default
 
 
 # Percorsi whisper.cpp — personalizzabili via env
@@ -327,8 +349,11 @@ def _transcribe_faster_whisper(audio_path, output_srt, lang,
         from faster_whisper import WhisperModel
         import time
 
-        if log_cb: log_cb("⚙  Caricamento modello faster-whisper (medium)…", "#90EE90")
-        model = WhisperModel("medium", device="cpu", compute_type="int8")
+        selected_model = _requested_model_name()
+        if log_cb:
+            log_cb(f"⚙  Modello Whisper selezionato: {selected_model}", "#90EE90")
+            log_cb(f"⚙  Caricamento modello faster-whisper ({selected_model})…", "#90EE90")
+        model = WhisperModel(selected_model, device="cpu", compute_type="int8")
 
         detect_lang = None if lang == "auto" else lang
         segments, info = model.transcribe(audio_path, language=detect_lang)
@@ -364,13 +389,15 @@ def _transcribe_faster_whisper_venv(audio_path, output_srt, lang,
             log_cb("✗  faster-whisper venv: interpreter non trovato.", "#FF6B6B")
         return False
 
+    selected_model = _requested_model_name()
+
     script = r"""
 import sys
 from faster_whisper import WhisperModel
 
-audio_path, output_srt, lang = sys.argv[1], sys.argv[2], sys.argv[3]
+audio_path, output_srt, lang, model_name = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 detect_lang = None if lang == "auto" else lang
-model = WhisperModel("medium", device="cpu", compute_type="int8")
+model = WhisperModel(model_name, device="cpu", compute_type="int8")
 segments, info = model.transcribe(audio_path, language=detect_lang)
 print(f"FWINFO:language={info.language};prob={info.language_probability:.4f};duration={info.duration}", flush=True)
 
@@ -392,7 +419,7 @@ with open(output_srt, "w", encoding="utf-8") as f:
 
     try:
         proc = subprocess.Popen(
-            [str(python_path), "-c", script, audio_path, output_srt, lang or "it"],
+            [str(python_path), "-c", script, audio_path, output_srt, lang or "it", selected_model],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -410,7 +437,8 @@ with open(output_srt, "w", encoding="utf-8") as f:
             continue
         if line.startswith("FWINFO:"):
             if log_cb:
-                log_cb("⚙  Caricamento modello faster-whisper (venv utente)…", "#90EE90")
+                log_cb(f"⚙  Modello Whisper selezionato: {selected_model}", "#90EE90")
+                log_cb(f"⚙  Caricamento modello faster-whisper (venv utente, {selected_model})…", "#90EE90")
             parts = dict(
                 item.split("=", 1) for item in line[7:].split(";") if "=" in item
             )
@@ -445,8 +473,11 @@ def _transcribe_openai_whisper(audio_path, output_srt, lang,
                                 progress_cb, log_cb):
     try:
         import whisper as ow
-        if log_cb: log_cb("⚙  Caricamento modello openai-whisper (medium)…", "#90EE90")
-        model = ow.load_model("medium")
+        selected_model = _requested_model_name()
+        if log_cb:
+            log_cb(f"⚙  Modello Whisper selezionato: {selected_model}", "#90EE90")
+            log_cb(f"⚙  Caricamento modello openai-whisper ({selected_model})…", "#90EE90")
+        model = ow.load_model(selected_model)
         detect_lang = None if lang == "auto" else lang
         result = model.transcribe(audio_path, language=detect_lang)
 

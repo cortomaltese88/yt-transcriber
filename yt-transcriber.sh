@@ -23,7 +23,7 @@ set -euo pipefail
 YT_TRANSCRIBER_WHISPER_BIN="${YT_TRANSCRIBER_WHISPER_BIN:-}"
 YT_TRANSCRIBER_WHISPER_MODEL="${YT_TRANSCRIBER_WHISPER_MODEL:-}"
 WHISPER_BIN="${WHISPER_BIN:-}"
-WHISPER_MODEL="${WHISPER_MODEL:-medium}"
+WHISPER_MODEL="${WHISPER_MODEL:-base}"
 YT_TRANSCRIBER_USER_VENV="${YT_TRANSCRIBER_USER_VENV:-$HOME/.local/share/yt-transcriber/venv}"
 YT_TRANSCRIBER_USER_VENV_PYTHON="${YT_TRANSCRIBER_USER_VENV_PYTHON:-$YT_TRANSCRIBER_USER_VENV/bin/python}"
 YT_TRANSCRIBER_APP_WHISPER_DIR="${YT_TRANSCRIBER_APP_WHISPER_DIR:-$HOME/.local/share/yt-transcriber/whisper.cpp}"
@@ -42,8 +42,9 @@ PYTHON_BACKEND_PYTHON="${PYTHON_BACKEND_PYTHON:-}"
 resolve_model_bin() {
   local model_input="${1:-}"
   if [[ -z "$model_input" ]]; then
-    model_input="medium"
+    model_input="base"
   fi
+  model_input="$(normalize_whisper_cpp_model_name "$model_input")"
   if [[ "$model_input" == */* || "$model_input" == *.bin ]]; then
     echo "$model_input"
   else
@@ -51,19 +52,48 @@ resolve_model_bin() {
   fi
 }
 
+normalize_whisper_cpp_model_name() {
+  local model_input
+  model_input="$(resolve_model_name "${1:-}")"
+  if [[ "$model_input" == "large" ]]; then
+    echo "large-v3"
+  else
+    echo "$model_input"
+  fi
+}
+
+normalize_python_model_name() {
+  local model_input
+  model_input="$(resolve_model_name "${1:-}")"
+  if [[ "$model_input" == "large-v3" ]]; then
+    echo "large"
+  else
+    echo "$model_input"
+  fi
+}
+
 resolve_model_name() {
   local model_input="${1:-}"
   if [[ -z "$model_input" ]]; then
-    echo "medium"
+    echo "base"
     return
   fi
   if [[ "$model_input" == */* || "$model_input" == *.bin ]]; then
     local base
     base="$(basename "$model_input")"
     base="${base#ggml-}"
-    echo "${base%.bin}"
+    base="${base%.bin}"
+    if [[ "$base" == "large-v3" ]]; then
+      echo "large"
+    else
+      echo "$base"
+    fi
   else
-    echo "$model_input"
+    if [[ "$model_input" == "large-v3" ]]; then
+      echo "large"
+    else
+      echo "$model_input"
+    fi
   fi
 }
 
@@ -113,7 +143,7 @@ resolve_whisper_model_path() {
     model_input="${WHISPER_MODEL}"
   fi
   if [[ -z "$model_input" ]]; then
-    model_input="medium"
+    model_input="base"
   fi
   if [[ "$model_input" == */* || "$model_input" == *.bin ]]; then
     candidate="$(resolve_model_bin "$model_input")"
@@ -121,6 +151,7 @@ resolve_whisper_model_path() {
     echo "$candidate"
     return
   fi
+  model_input="$(normalize_whisper_cpp_model_name "$model_input")"
   for candidate in \
     "$HOME/whisper.cpp/models/ggml-${model_input}.bin" \
     "$HOME/.local/share/yt-transcriber/models/ggml-${model_input}.bin" \
@@ -211,7 +242,7 @@ VARIABILI D'AMBIENTE:
   YT_TRANSCRIBER_WHISPER_BIN   Override percorso whisper-cli
   YT_TRANSCRIBER_WHISPER_MODEL Override modello/path .bin
   WHISPER_BIN     Override legacy percorso whisper-cli
-  WHISPER_MODEL   Modello (small/medium/large-v3) o path .bin (default: medium)
+  WHISPER_MODEL   Modello (tiny/base/small/medium/large) o path .bin (default: base)
 EOF
 }
 
@@ -321,7 +352,7 @@ check_deps() {
     fi
   fi
   local model_input
-  model_input="${YT_TRANSCRIBER_WHISPER_MODEL:-${WHISPER_MODEL:-medium}}"
+  model_input="${YT_TRANSCRIBER_WHISPER_MODEL:-${WHISPER_MODEL:-base}}"
   if [[ -n "${WHISPER_BIN:-}" ]]; then
     local check_model
     check_model="$(resolve_whisper_model_path "$model_input")"
@@ -480,9 +511,11 @@ main() {
   # ── Step 3: Trascrizione Whisper ───────────────────────────────────────────
   local LANG="${WHISPER_LANG:-it}"
   local MODEL_INPUT
-  MODEL_INPUT="${WHISPER_MODEL:-medium}"
+  MODEL_INPUT="${WHISPER_MODEL:-base}"
   local MODEL_NAME
   MODEL_NAME="$(resolve_model_name "$MODEL_INPUT")"
+  local MODEL_NAME_CPP
+  MODEL_NAME_CPP="$(normalize_whisper_cpp_model_name "$MODEL_INPUT")"
   local WITH_TS="${WHISPER_TIMESTAMPS:-0}"
   local BURN_SUBS="${WHISPER_BURN_SUBS:-0}"
 
@@ -503,21 +536,22 @@ main() {
     WHISPER_BIN="$WHISPER_BIN_RESOLVED"
     MODEL_BIN="$(resolve_whisper_model_path "$MODEL_INPUT")"
     if [[ ! -f "$MODEL_BIN" && "$MODEL_INPUT" != */* && "$MODEL_INPUT" != *.bin && -z "${YT_TRANSCRIBER_WHISPER_MODEL:-}" ]]; then
-      step "Download modello Whisper: ${MODEL_NAME}"
+      step "Download modello Whisper: ${MODEL_NAME_CPP}"
       local DOWNLOAD_SCRIPT=""
       DOWNLOAD_SCRIPT="$(resolve_whisper_download_script)" || err "Script download modello Whisper non trovato"
-      bash "$DOWNLOAD_SCRIPT" "$MODEL_NAME" || err "Download modello ${MODEL_NAME} fallito"
+      bash "$DOWNLOAD_SCRIPT" "$MODEL_NAME_CPP" || err "Download modello ${MODEL_NAME_CPP} fallito"
     fi
     WHISPER_MODEL="$MODEL_BIN"
   else
     WHISPER_BIN=""
-    WHISPER_MODEL=""
+    WHISPER_MODEL="$MODEL_NAME"
   fi
 
   # Rileva backend migliore disponibile
   local BACKEND_INFO
   BACKEND_INFO=$(python3 "$PIPELINE_DIR/transcriber_backend.py" 2>/dev/null | grep "Backend:" | awk -F': ' '{print $2}')
   ok "Backend: ${BACKEND_INFO:-rilevamento in corso…}"
+  ok "Modello Whisper selezionato: ${MODEL_NAME}"
 
   # Controlla se usare whisper.cpp o python backend
   local USE_WHISPER_CPP=0
@@ -582,6 +616,7 @@ try:
     from transcriber_backend import transcribe, detect_backend
     backend = detect_backend()
     print(f"Backend: {backend['info']}", flush=True)
+    print(f"WHISPER_MODEL={os.environ.get('WHISPER_MODEL', 'base')}", flush=True)
     ok = transcribe(
         sys.argv[1], sys.argv[2],
         lang=sys.argv[3] if sys.argv[3] else "it",

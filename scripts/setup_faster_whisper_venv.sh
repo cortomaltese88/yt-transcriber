@@ -4,7 +4,7 @@ set -euo pipefail
 VENV_DIR="${YT_TRANSCRIBER_USER_VENV:-$HOME/.local/share/yt-transcriber/venv}"
 VENV_PYTHON="$VENV_DIR/bin/python"
 CHECK_ONLY=0
-MODEL_NAME="medium"
+MODEL_NAME="base"
 if [[ "${1:-}" == "--check-only" ]]; then
   CHECK_ONLY=1
   shift
@@ -84,7 +84,7 @@ echo "==> Scarico/verifico modello faster-whisper: $MODEL_NAME"
 import sys
 from faster_whisper import WhisperModel
 
-model_name = sys.argv[1] if len(sys.argv) > 1 else "medium"
+model_name = sys.argv[1] if len(sys.argv) > 1 else "base"
 WhisperModel(model_name, device="cpu", compute_type="int8")
 print("Modello pronto")
 PYEOF

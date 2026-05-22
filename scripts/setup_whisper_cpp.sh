@@ -3,7 +3,7 @@ set -euo pipefail
 
 APP_DIR="${YT_TRANSCRIBER_APP_WHISPER_DIR:-$HOME/.local/share/yt-transcriber/whisper.cpp}"
 CHECK_ONLY=0
-MODEL_NAME="medium"
+MODEL_NAME="base"
 if [[ "${1:-}" == "--check-only" ]]; then
   CHECK_ONLY=1
   shift

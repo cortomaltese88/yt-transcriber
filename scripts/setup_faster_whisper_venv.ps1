@@ -1,6 +1,6 @@
 param(
     [Parameter(Position = 0)]
-    [string]$Model = "medium",
+    [string]$Model = "base",
 
     [switch]$CheckOnly
 )

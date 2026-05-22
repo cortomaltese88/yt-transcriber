@@ -105,9 +105,11 @@ LANGUAGES = [
 ]
 
 WHISPER_MODELS = [
-    ("medium",   "medium   — veloce, buona qualità  (~1.5 GB)"),
-    ("large-v3", "large-v3 — lento, qualità massima (~3 GB)"),
-    ("small",    "small    — molto veloce, qualità base (~500 MB)"),
+    ("tiny",   "tiny     — ultraleggero, qualità minima (~75 MB)"),
+    ("base",   "base     — rapido, test veloci (~140 MB)"),
+    ("small",  "small    — quasi realtime, qualità base (~500 MB)"),
+    ("medium", "medium   — più lento, buona qualità (~1.5 GB)"),
+    ("large",  "large    — lento, qualità massima (~3 GB)"),
 ]
 
 # ── Palette Matrix Slate ───────────────────────────────────────────────────────
@@ -180,7 +182,11 @@ def _normalize_model_filename(model_name):
         raw = raw[:-4]
     if raw.startswith("ggml-"):
         raw = raw[5:]
-    return f"ggml-{raw}.bin" if raw else "ggml-medium.bin"
+    if raw == "large":
+        raw = "large-v3"
+    elif raw == "large-v3":
+        raw = "large-v3"
+    return f"ggml-{raw}.bin" if raw else "ggml-base.bin"
 
 
 def _resolve_model_candidate_paths(model_name):
@@ -287,7 +293,7 @@ class PipelineWorker(QThread):
 
     def __init__(self, url, title, output_dir,
                  lang="it", timestamps=False, burn_subs=False,
-                 formats=None, model="medium", audio_normalize=False,
+                 formats=None, model="base", audio_normalize=False,
                  whisper_bin=None, whisper_model_path=None):
         super().__init__()
         self.url        = url
@@ -772,7 +778,7 @@ class MainWindow(QMainWindow):
         self._burn_subs     = False
         self._audio_normalize = False
         self._formats       = {"docx":True,"pdf":False,"txt":False,"srt":True,"vtt":False}
-        self._whisper_model = "medium"
+        self._whisper_model = "base"
         self._history       = load_history()
         self._pulse_timer   = QTimer()
         self._pulse_timer.timeout.connect(self._pulse_progress)
@@ -1481,7 +1487,7 @@ class MainWindow(QMainWindow):
         self.setup_backend_btn.setEnabled(False)
         self.setup_backend_btn.setText("Setup in corso…")
 
-        model_name = self._whisper_model or "medium"
+        model_name = self._whisper_model or "base"
         if setup_label == "faster-whisper" and is_windows():
             powershell = shutil.which("powershell.exe")
             if not powershell:
@@ -1904,7 +1910,7 @@ class MainWindow(QMainWindow):
                      "-of","default=noprint_wrappers=1:nokey=1", self._local_file],
                     capture_output=True, text=True)
                 dur = float(r.stdout.strip())
-                speed = {"medium":7,"large-v3":3,"small":15}.get(self._whisper_model,7)
+                speed = {"tiny":18, "base":14, "small":10, "medium":7, "large":3}.get(self._whisper_model, 7)
                 est = int(dur / speed)
                 self._log(
                     f"   durata:   {int(dur//60)}m{int(dur%60)}s  →  stima ~{est//60}m{est%60:02d}s",

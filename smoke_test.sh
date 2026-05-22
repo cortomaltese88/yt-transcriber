@@ -147,6 +147,11 @@ run_check "GUI->env: YT_TRANSCRIBER_WHISPER_MODEL presente" grep -Fq 'YT_TRANSCR
 run_check "GUI: AUDIO_PREP_STATUS presente" grep -Fq 'AUDIO_PREP_STATUS' yt-transcriber_gui.py
 run_check "GUI Whisper: resolve_whisper_bin presente" grep -Fq 'def resolve_whisper_bin' yt-transcriber_gui.py
 run_check "GUI Whisper: resolve_whisper_model presente" grep -Fq 'def resolve_whisper_model' yt-transcriber_gui.py
+run_check "GUI Whisper: modello tiny presente" grep -Fq '("tiny",' yt-transcriber_gui.py
+run_check "GUI Whisper: modello base presente" grep -Fq '("base",' yt-transcriber_gui.py
+run_check "GUI Whisper: modello small presente" grep -Fq '("small",' yt-transcriber_gui.py
+run_check "GUI Whisper: modello medium presente" grep -Fq '("medium",' yt-transcriber_gui.py
+run_check "GUI Whisper: modello large presente" grep -Fq '("large",' yt-transcriber_gui.py
 run_check "GUI Whisper: fallback faster-whisper presente" grep -Fq 'Fallback Python disponibile:' yt-transcriber_gui.py
 run_check "GUI Whisper: warning backend mancante presente" grep -Fq 'Configura whisper.cpp oppure installa faster-whisper.' yt-transcriber_gui.py
 run_check "GUI Whisper: pulsante setup presente" grep -Fq 'Configura backend Whisper' yt-transcriber_gui.py
@@ -159,8 +164,13 @@ run_check "GUI Whisper: run button bloccato senza backend" grep -Fq 'self.run_bt
 run_check "GUI Whisper: closeEvent protegge setup attivo" grep -Fq 'Setup backend in corso. Vuoi interromperlo e chiudere yt-transcriber?' yt-transcriber_gui.py
 run_check "Backend: whisper.cpp gestito dall'app presente" grep -Fq 'whisper.cpp (gestito dall'"'"'app)' transcriber_backend.py
 run_check "Backend: helper normalizzazione modello presente" grep -Fq 'def _normalize_whisper_model_input' transcriber_backend.py
+run_check "Backend: helper modello richiesto presente" grep -Fq 'def _requested_model_name' transcriber_backend.py
 run_check "Backend: logica ggml app-managed presente" grep -Fq 'APP_WHISPER_MODEL = APP_WHISPER_CPP_DIR / "models" / APP_WHISPER_MODEL_NAME' transcriber_backend.py
 run_check "Backend: faster-whisper venv utente presente" grep -Fq 'faster-whisper (venv utente)' transcriber_backend.py
+run_check "Backend Python: niente medium hardcoded in faster-whisper" bash -lc '! grep -Fq '\''WhisperModel("medium"'\'' transcriber_backend.py'
+run_check "Backend Python: niente medium hardcoded in openai-whisper" bash -lc '! grep -Fq '\''load_model("medium")'\'' transcriber_backend.py'
+run_check "Pipeline Whisper: preserva modello per backend Python" grep -Fq 'WHISPER_MODEL="$MODEL_NAME"' yt-transcriber.sh
+run_check "Pipeline Whisper: log modello selezionato presente" grep -Fq 'Modello Whisper selezionato:' yt-transcriber.sh
 run_check "Setup whisper.cpp: script presente" test -f scripts/setup_whisper_cpp.sh
 run_check "Setup whisper.cpp: build path presente" grep -Fq '.local/share/yt-transcriber/whisper.cpp' scripts/setup_whisper_cpp.sh
 run_check "Setup whisper.cpp: launcher presente" grep -Fq -- '--setup-whisper-cpp' build_deb.sh
