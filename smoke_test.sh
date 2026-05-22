@@ -154,6 +154,8 @@ run_check "GUI Whisper: modello medium presente" grep -Fq '("medium",' yt-transc
 run_check "GUI Whisper: modello large presente" grep -Fq '("large",' yt-transcriber_gui.py
 run_check "GUI Whisper: warning modello mancante presente" grep -Fq 'Modello whisper.cpp mancante:' yt-transcriber_gui.py
 run_check "GUI Whisper: suggerimento installa modello presente" grep -Fq 'Installa il modello' yt-transcriber_gui.py
+run_check "GUI Whisper: dialog contestuale modello selezionato presente" grep -Fq "E' selezionato il modello" yt-transcriber_gui.py
+run_check "GUI Whisper: dialog backend e modello selezionato presente" grep -Fq 'backend e il modello selezionato' yt-transcriber_gui.py
 run_check "GUI Whisper: fallback faster-whisper presente" grep -Fq 'Fallback Python disponibile:' yt-transcriber_gui.py
 run_check "GUI Whisper: warning backend mancante presente" grep -Fq 'Configura whisper.cpp oppure installa faster-whisper.' yt-transcriber_gui.py
 run_check "GUI Whisper: pulsante setup presente" grep -Fq 'Configura backend Whisper' yt-transcriber_gui.py

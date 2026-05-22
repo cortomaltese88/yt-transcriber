@@ -1426,14 +1426,26 @@ class MainWindow(QMainWindow):
 
         box = QMessageBox(self)
         box.setWindowTitle("Configura backend Whisper")
+        contextual_intro = ""
+        if (
+            self._backend_status.get("model_missing")
+            and not self._backend_status.get("uses_python_fallback")
+        ):
+            contextual_intro = (
+                f"E' selezionato il modello {self._backend_status.get('selected_model', 'base')}, "
+                f"ma manca {self._backend_status.get('model_label', 'ggml-base.bin')}.\n\n"
+                "Premi \"Installa whisper.cpp\" per installare/verificare il backend e il modello selezionato.\n\n"
+            )
         if is_windows():
             box.setText(
+                f"{contextual_intro}"
                 "Scegli come preparare il backend Whisper.\n\n"
                 "faster-whisper: setup guidato disponibile in venv utente tramite PowerShell e Python installato dall'utente.\n"
                 "whisper.cpp: setup guidato Windows non ancora integrato nella GUI."
             )
         else:
             box.setText(
+                f"{contextual_intro}"
                 "Scegli come configurare il backend Whisper.\n\n"
                 "whisper.cpp: backend consigliato, usa whisper-cli e modelli ggml.\n"
                 "faster-whisper: alternativa Python in venv utente, utile se whisper.cpp non e' disponibile o non si compila."
