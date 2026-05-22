@@ -23,6 +23,7 @@ from pathlib import Path
 from platform_paths import (
     app_whisper_cpp_bin,
     app_whisper_cpp_dir,
+    app_whisper_model_dir,
     is_windows,
     user_venv_dir,
     user_venv_python,
@@ -36,6 +37,7 @@ USER_VENV_DIR = user_venv_dir()
 USER_VENV_PYTHON = user_venv_python()
 APP_WHISPER_CPP_DIR = app_whisper_cpp_dir()
 APP_WHISPER_CPP_BIN = app_whisper_cpp_bin()
+APP_WHISPER_MODEL_DIR = app_whisper_model_dir()
 YT_TRANSCRIBER_WHISPER_BIN_ENV = "YT_TRANSCRIBER_WHISPER_BIN"
 YT_TRANSCRIBER_WHISPER_MODEL_ENV = "YT_TRANSCRIBER_WHISPER_MODEL"
 
@@ -99,6 +101,39 @@ WHISPER_BINS = {
     )),
 }
 APP_WHISPER_MODEL = APP_WHISPER_CPP_DIR / "models" / APP_WHISPER_MODEL_NAME
+WHISPER_MODEL_BASE_DIRS = (
+    HOME / "whisper.cpp/models",
+    HOME / ".local/share/yt-transcriber/models",
+    APP_WHISPER_MODEL_DIR,
+    Path("/usr/share/yt-transcriber/models"),
+    Path("/usr/local/share/whisper.cpp/models"),
+)
+
+
+def _discover_available_whisper_model() -> Path | None:
+    """Ritorna un modello ggml disponibile per rilevare la disponibilita' del backend."""
+    if WHISPER_MODEL.exists():
+        return WHISPER_MODEL
+
+    if APP_WHISPER_MODEL.exists():
+        return APP_WHISPER_MODEL
+
+    for env_name in (YT_TRANSCRIBER_WHISPER_MODEL_ENV, "WHISPER_MODEL"):
+        raw = os.environ.get(env_name, "").strip()
+        if not raw:
+            continue
+        candidate = Path(raw).expanduser()
+        if candidate.is_file():
+            return candidate
+
+    for model_name in ("base", "small", "medium", "large-v3", "tiny"):
+        filename = f"ggml-{model_name}.bin"
+        for base_dir in WHISPER_MODEL_BASE_DIRS:
+            candidate = base_dir / filename
+            if candidate.is_file():
+                return candidate
+
+    return None
 
 
 def _venv_has_module(python_path: Path, module_name: str) -> bool:
@@ -143,46 +178,48 @@ def detect_backend() -> dict:
     Rileva il backend migliore disponibile.
     Ritorna: {'type': str, 'bin': Path|None, 'model': Path|None, 'info': str}
     """
+    available_model = _discover_available_whisper_model()
+
     # 1. whisper.cpp Vulkan
-    if WHISPER_BINS["vulkan"].exists() and WHISPER_MODEL.exists():
+    if WHISPER_BINS["vulkan"].exists():
         if _test_whisper_bin(WHISPER_BINS["vulkan"]):
             return {
                 "type":  "whisper_vulkan",
                 "bin":   WHISPER_BINS["vulkan"],
-                "model": WHISPER_MODEL,
+                "model": available_model,
                 "info":  "whisper.cpp (Vulkan GPU)",
                 "fast":  True,
             }
 
     # 2. whisper.cpp CUDA
-    if WHISPER_BINS["cuda"].exists() and WHISPER_MODEL.exists():
+    if WHISPER_BINS["cuda"].exists():
         if _test_whisper_bin(WHISPER_BINS["cuda"]):
             return {
                 "type":  "whisper_cuda",
                 "bin":   WHISPER_BINS["cuda"],
-                "model": WHISPER_MODEL,
+                "model": available_model,
                 "info":  "whisper.cpp (CUDA GPU)",
                 "fast":  True,
             }
 
     # 3. whisper.cpp CPU
-    if WHISPER_BINS["cpu"].exists() and WHISPER_MODEL.exists():
+    if WHISPER_BINS["cpu"].exists():
         if _test_whisper_bin(WHISPER_BINS["cpu"]):
             return {
                 "type":  "whisper_cpu",
                 "bin":   WHISPER_BINS["cpu"],
-                "model": WHISPER_MODEL,
+                "model": available_model,
                 "info":  "whisper.cpp (CPU)",
                 "fast":  False,
             }
 
     # 4. whisper.cpp gestito dall'app
-    if APP_WHISPER_CPP_BIN.exists() and APP_WHISPER_MODEL.exists():
+    if APP_WHISPER_CPP_BIN.exists():
         if _test_whisper_bin(APP_WHISPER_CPP_BIN):
             return {
                 "type":  "whisper_app_cpu",
                 "bin":   APP_WHISPER_CPP_BIN,
-                "model": APP_WHISPER_MODEL,
+                "model": available_model,
                 "info":  "whisper.cpp (gestito dall'app)",
                 "fast":  False,
             }
@@ -270,6 +307,10 @@ def transcribe(
     btype = backend["type"]
 
     if btype in ("whisper_vulkan", "whisper_cuda", "whisper_cpu", "whisper_app_cpu", "whisper_manual"):
+        if not backend.get("model"):
+            if log_callback:
+                log_callback("✗  Backend whisper.cpp rilevato ma nessun modello ggml disponibile.", "#FF6B6B")
+            return False
         return _transcribe_whisper_cpp(
             audio_path, output_srt, lang, threads,
             backend, progress_callback, log_callback
