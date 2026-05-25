@@ -633,6 +633,25 @@ PYEOF
   fi
 
   [[ ! -f "$srt_file" ]] && err "File SRT non generato: $srt_file"
+  local sanitize_report=""
+  sanitize_report=$(PIPELINE_DIR_PY="$PIPELINE_DIR" python3 - "$srt_file" <<'PYEOF'
+import os
+import sys
+
+sys.path.insert(0, os.environ["PIPELINE_DIR_PY"])
+from transcriber_backend import sanitize_srt_file, srt_sanitizer_log_message
+
+removed, total = sanitize_srt_file(sys.argv[1])
+print(f"{removed}:{total}:{srt_sanitizer_log_message(removed) or ''}")
+PYEOF
+  ) || err "Sanitizzazione SRT fallita"
+  local removed_segments="${sanitize_report%%:*}"
+  local sanitize_tail="${sanitize_report#*:}"
+  local total_segments="${sanitize_tail%%:*}"
+  local sanitize_message="${sanitize_report##*:}"
+  if [[ "${removed_segments:-0}" -gt 0 ]]; then
+    warn "${sanitize_message}"
+  fi
   ok "Trascrizione completata: $srt_file"
 
   # Titolo sicuro per nomi file (necessario anche per BURN_SUBS prima di riga output)

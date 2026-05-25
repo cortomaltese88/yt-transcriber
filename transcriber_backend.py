@@ -19,6 +19,8 @@ import sys
 import shutil
 import subprocess
 import platform
+import re
+from dataclasses import dataclass
 from pathlib import Path
 from platform_paths import (
     app_whisper_cpp_bin,
@@ -40,6 +42,19 @@ APP_WHISPER_CPP_BIN = app_whisper_cpp_bin()
 APP_WHISPER_MODEL_DIR = app_whisper_model_dir()
 YT_TRANSCRIBER_WHISPER_BIN_ENV = "YT_TRANSCRIBER_WHISPER_BIN"
 YT_TRANSCRIBER_WHISPER_MODEL_ENV = "YT_TRANSCRIBER_WHISPER_MODEL"
+BANAL_SEGMENT_TOKENS = {
+    "e", "eh", "em", "mm", "mmm", "mh", "mhm", "mmh", "uh", "uhm", "hm",
+}
+BANAL_SEGMENT_PUNCT = {".", "..", "...", "....", "-", "--", "...", "…"}
+MAX_BANAL_SEGMENT_DURATION = 1.5
+MIN_BANAL_RUN_LENGTH = 3
+
+
+@dataclass(frozen=True)
+class TranscriptSegment:
+    start: float
+    end: float
+    text: str
 
 def _normalize_whisper_model_input(model_value: str | None) -> tuple[Path, str]:
     """Ritorna il path modello risolto e il filename ggml per il modello app-managed."""
@@ -76,6 +91,179 @@ def _requested_model_name(default: str = "base") -> str:
             return "large"
         return name
     return default
+
+
+def _python_transcribe_kwargs(lang: str) -> dict:
+    detect_lang = None if lang == "auto" else lang
+    return {
+        "language": detect_lang,
+        "condition_on_previous_text": False,
+        "compression_ratio_threshold": 2.2,
+        "log_prob_threshold": -1.0,
+        "no_speech_threshold": 0.6,
+        "temperature": 0.0,
+    }
+
+
+def _python_vad_transcribe_kwargs(lang: str) -> dict:
+    kwargs = _python_transcribe_kwargs(lang)
+    kwargs["vad_filter"] = True
+    return kwargs
+
+
+def _parse_srt_timestamp(raw: str) -> float:
+    hours, minutes, rest = raw.split(":")
+    seconds, millis = rest.split(",")
+    return (
+        int(hours) * 3600
+        + int(minutes) * 60
+        + int(seconds)
+        + int(millis) / 1000.0
+    )
+
+
+def _normalize_segment_text(text: str) -> str:
+    normalized = (text or "").strip().lower()
+    normalized = normalized.replace("...", " ")
+    normalized = normalized.replace("…", " ")
+    normalized = re.sub(r"[\-_]+", " ", normalized)
+    normalized = re.sub(r"[^\w\s']", " ", normalized, flags=re.UNICODE)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    return normalized
+
+
+def _is_banal_segment_text(text: str) -> bool:
+    stripped = (text or "").strip().lower()
+    if not stripped:
+        return True
+    if stripped in BANAL_SEGMENT_PUNCT:
+        return True
+
+    normalized = _normalize_segment_text(text)
+    if not normalized:
+        return True
+
+    tokens = normalized.split()
+    return bool(tokens) and all(token in BANAL_SEGMENT_TOKENS for token in tokens)
+
+
+def _is_short_banal_segment(segment: TranscriptSegment) -> bool:
+    duration = max(0.0, segment.end - segment.start)
+    return duration <= MAX_BANAL_SEGMENT_DURATION and _is_banal_segment_text(segment.text)
+
+
+def parse_srt_segments(content: str) -> list[TranscriptSegment]:
+    segments: list[TranscriptSegment] = []
+    blocks = re.split(r"\n\s*\n", content.strip(), flags=re.MULTILINE)
+
+    for block in blocks:
+        lines = [line.rstrip() for line in block.splitlines() if line.strip()]
+        if len(lines) < 2:
+            continue
+
+        if re.fullmatch(r"\d+", lines[0]):
+            lines = lines[1:]
+        if len(lines) < 2:
+            continue
+
+        match = re.match(
+            r"^(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})$",
+            lines[0].strip(),
+        )
+        if not match:
+            continue
+
+        text = "\n".join(lines[1:]).strip()
+        segments.append(
+            TranscriptSegment(
+                start=_parse_srt_timestamp(match.group(1)),
+                end=_parse_srt_timestamp(match.group(2)),
+                text=text,
+            )
+        )
+
+    return segments
+
+
+def format_srt_segments(segments: list[TranscriptSegment]) -> str:
+    lines: list[str] = []
+    for index, segment in enumerate(segments, start=1):
+        lines.append(
+            f"{index}\n{_fmt_ts(segment.start)} --> {_fmt_ts(segment.end)}\n{segment.text.strip()}\n"
+        )
+    return "\n".join(lines)
+
+
+def sanitize_transcript_segments(segments: list[TranscriptSegment]) -> list[TranscriptSegment]:
+    sanitized: list[TranscriptSegment] = []
+    index = 0
+
+    while index < len(segments):
+        segment = segments[index]
+
+        if not segment.text.strip():
+            index += 1
+            continue
+
+        if not _is_short_banal_segment(segment):
+            sanitized.append(segment)
+            index += 1
+            continue
+
+        run_end = index + 1
+        while run_end < len(segments) and _is_short_banal_segment(segments[run_end]):
+            run_end += 1
+
+        run = segments[index:run_end]
+        if len(run) >= MIN_BANAL_RUN_LENGTH:
+            index = run_end
+            continue
+
+        sanitized.extend(run)
+        index = run_end
+
+    return sanitized
+
+
+def sanitize_srt_content(content: str) -> tuple[str, int]:
+    segments = parse_srt_segments(content)
+    if not segments:
+        return content, 0
+
+    sanitized = sanitize_transcript_segments(segments)
+    removed = len(segments) - len(sanitized)
+    if removed <= 0:
+        return content, 0
+
+    return format_srt_segments(sanitized), removed
+
+
+def sanitize_srt_file(path: str | Path) -> tuple[int, int]:
+    srt_path = Path(path)
+    content = srt_path.read_text(encoding="utf-8")
+    sanitized_content, removed = sanitize_srt_content(content)
+    if removed > 0:
+        srt_path.write_text(sanitized_content, encoding="utf-8")
+    return removed, len(parse_srt_segments(content))
+
+
+def srt_sanitizer_log_message(removed: int) -> str | None:
+    if removed <= 0:
+        return None
+    return f"SRT sanitizer: removed {removed} degenerate subtitle segments"
+
+
+def _sanitize_output_srt(output_srt: str, log_cb=None) -> None:
+    try:
+        removed, _total = sanitize_srt_file(output_srt)
+    except Exception as exc:
+        if log_cb:
+            log_cb(f"!  Sanitizzazione SRT saltata: {exc}", "#FFD166")
+        return
+
+    message = srt_sanitizer_log_message(removed)
+    if message and log_cb:
+        log_cb(message, "#FFD166")
 
 
 # Percorsi whisper.cpp — personalizzabili via env
@@ -305,28 +493,29 @@ def transcribe(
         backend = detect_backend()
 
     btype = backend["type"]
+    success = False
 
     if btype in ("whisper_vulkan", "whisper_cuda", "whisper_cpu", "whisper_app_cpu", "whisper_manual"):
         if not backend.get("model"):
             if log_callback:
                 log_callback("✗  Backend whisper.cpp rilevato ma nessun modello ggml disponibile.", "#FF6B6B")
             return False
-        return _transcribe_whisper_cpp(
+        success = _transcribe_whisper_cpp(
             audio_path, output_srt, lang, threads,
             backend, progress_callback, log_callback
         )
     elif btype == "faster_whisper":
-        return _transcribe_faster_whisper(
+        success = _transcribe_faster_whisper(
             audio_path, output_srt, lang,
             progress_callback, log_callback
         )
     elif btype == "faster_whisper_venv":
-        return _transcribe_faster_whisper_venv(
+        success = _transcribe_faster_whisper_venv(
             audio_path, output_srt, lang,
             backend, progress_callback, log_callback
         )
     elif btype == "openai_whisper":
-        return _transcribe_openai_whisper(
+        success = _transcribe_openai_whisper(
             audio_path, output_srt, lang,
             progress_callback, log_callback
         )
@@ -335,10 +524,14 @@ def transcribe(
             log_callback("✗  Nessun backend disponibile.", "#FF6B6B")
         return False
 
+    if success:
+        _sanitize_output_srt(output_srt, log_callback)
+    return success
+
 
 def _transcribe_whisper_cpp(audio_path, output_srt, lang, threads,
                              backend, progress_cb, log_cb):
-    import re, time
+    import time
     srt_base = output_srt.replace(".srt", "")
     lang_arg = ["-l", lang] if lang and lang != "auto" else []
 
@@ -396,8 +589,7 @@ def _transcribe_faster_whisper(audio_path, output_srt, lang,
             log_cb(f"⚙  Caricamento modello faster-whisper ({selected_model})…", "#90EE90")
         model = WhisperModel(selected_model, device="cpu", compute_type="int8")
 
-        detect_lang = None if lang == "auto" else lang
-        segments, info = model.transcribe(audio_path, language=detect_lang)
+        segments, info = model.transcribe(audio_path, **_python_vad_transcribe_kwargs(lang))
 
         if log_cb:
             log_cb(f"⚙  Lingua rilevata: {info.language} ({info.language_probability:.0%})", "#90EE90")
@@ -437,9 +629,17 @@ import sys
 from faster_whisper import WhisperModel
 
 audio_path, output_srt, lang, model_name = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
-detect_lang = None if lang == "auto" else lang
 model = WhisperModel(model_name, device="cpu", compute_type="int8")
-segments, info = model.transcribe(audio_path, language=detect_lang)
+kwargs = {
+    "language": None if lang == "auto" else lang,
+    "condition_on_previous_text": False,
+    "compression_ratio_threshold": 2.2,
+    "log_prob_threshold": -1.0,
+    "no_speech_threshold": 0.6,
+    "temperature": 0.0,
+    "vad_filter": True,
+}
+segments, info = model.transcribe(audio_path, **kwargs)
 print(f"FWINFO:language={info.language};prob={info.language_probability:.4f};duration={info.duration}", flush=True)
 
 def fmt_ts(seconds):
@@ -519,8 +719,7 @@ def _transcribe_openai_whisper(audio_path, output_srt, lang,
             log_cb(f"⚙  Modello Whisper selezionato: {selected_model}", "#90EE90")
             log_cb(f"⚙  Caricamento modello openai-whisper ({selected_model})…", "#90EE90")
         model = ow.load_model(selected_model)
-        detect_lang = None if lang == "auto" else lang
-        result = model.transcribe(audio_path, language=detect_lang)
+        result = model.transcribe(audio_path, **_python_transcribe_kwargs(lang))
 
         lines = []
         for i, seg in enumerate(result["segments"]):
@@ -540,8 +739,8 @@ def _transcribe_openai_whisper(audio_path, output_srt, lang,
 
 def _fmt_ts(seconds: float) -> str:
     """Secondi → HH:MM:SS,mmm"""
-    ms = int((seconds % 1) * 1000)
-    s  = int(seconds)
+    total_ms = max(0, int(round(seconds * 1000)))
+    s, ms = divmod(total_ms, 1000)
     m, s = divmod(s, 60)
     h, m = divmod(m, 60)
     return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"

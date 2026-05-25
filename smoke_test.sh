@@ -47,6 +47,8 @@ else
   ko "Python py_compile: yt-transcriber_gui.py, transcriber_backend.py, platform_paths.py, set_lang_it.py"
 fi
 
+run_check "Unit test: transcript sanitizer" python3 -m unittest tests.test_transcript_sanitizer
+
 run_check "Sintassi JavaScript: make_docx_styled.js" node --check make_docx_styled.js
 run_check "Help wrapper: ./yt-transcriber --help" ./yt-transcriber --help
 run_check "Help pipeline: bash yt-transcriber.sh --help" bash yt-transcriber.sh --help
@@ -178,6 +180,8 @@ run_check "Platform paths: import in backend presente" grep -Fq 'from platform_p
 run_check "Backend: usa platform_paths per model dir app-managed" grep -Fq 'app_whisper_model_dir' transcriber_backend.py
 run_check "Backend Python: niente medium hardcoded in faster-whisper" bash -lc '! grep -Fq '\''WhisperModel("medium"'\'' transcriber_backend.py'
 run_check "Backend Python: niente medium hardcoded in openai-whisper" bash -lc '! grep -Fq '\''load_model("medium")'\'' transcriber_backend.py'
+run_check "Backend: sanitizzazione SRT presente" grep -Fq 'sanitize_srt_file' transcriber_backend.py
+run_check "Pipeline Whisper: sanitizzazione SRT presente" grep -Fq 'Sanitizzazione SRT' yt-transcriber.sh
 run_check "Pipeline Whisper: preserva modello per backend Python" grep -Fq 'WHISPER_MODEL="$MODEL_NAME"' yt-transcriber.sh
 run_check "Pipeline Whisper: log modello selezionato presente" grep -Fq 'Modello Whisper selezionato:' yt-transcriber.sh
 run_check "Backend: messaggio nessun modello ggml disponibile presente" grep -Fq 'nessun modello ggml disponibile' transcriber_backend.py

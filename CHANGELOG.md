@@ -9,6 +9,7 @@ Questo file riassume in modo sintetico le variazioni documentabili del progetto.
 - Incluso `platform_paths.py` nel pacchetto Debian.
 - Corretto il rilevamento backend Whisper/Vulkan quando manca il modello selezionato ma il backend e' disponibile.
 - Rafforzati smoke test e controlli statici sul packaging.
+- Aggiunte guardie anti-allucinazione su silenzi lunghi: parametri piu' prudenti per backend Python e sanitizzazione SRT di segmenti banali ripetuti.
 
 ## v1.2.1 - Fix minori backend manager Linux
 
