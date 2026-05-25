@@ -1,6 +1,6 @@
 {
   "name": "yt-transcriber",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "",
   "main": "make_docx_styled.js",
   "scripts": {

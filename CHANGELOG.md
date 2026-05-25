@@ -2,6 +2,14 @@
 
 Questo file riassume in modo sintetico le variazioni documentabili del progetto.
 
+## v1.2.3
+
+- Filtrati i sottotitoli degeneri dopo silenzi lunghi, con rimozione prudente di run ripetute di token banali come `e`.
+- Aggiunti parametri piu' prudenti per i backend Python Whisper, per ridurre allucinazioni e carry-over indesiderato dopo pause prolungate.
+- Introdotto un sanitizer SRT comune applicato anche al ramo `whisper.cpp`, cosi' il filtro protegge entrambe le pipeline.
+- Aggiunti fixture realistico e test di regressione dedicati per il caso dei sottotitoli ripetuti dopo silenzio lungo.
+- Aggiunto logging sintetico solo quando il sanitizer rimuove effettivamente segmenti degeneri.
+
 ## v1.2.2
 
 - Corretta propagazione del modello selezionato dalla GUI ai backend Whisper.
@@ -9,7 +17,6 @@ Questo file riassume in modo sintetico le variazioni documentabili del progetto.
 - Incluso `platform_paths.py` nel pacchetto Debian.
 - Corretto il rilevamento backend Whisper/Vulkan quando manca il modello selezionato ma il backend e' disponibile.
 - Rafforzati smoke test e controlli statici sul packaging.
-- Aggiunte guardie anti-allucinazione su silenzi lunghi: parametri piu' prudenti per backend Python e sanitizzazione SRT di segmenti banali ripetuti.
 
 ## v1.2.1 - Fix minori backend manager Linux
 

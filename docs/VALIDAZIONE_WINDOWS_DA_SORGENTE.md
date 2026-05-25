@@ -266,7 +266,7 @@ python .\yt-transcriber_gui.py
 Checklist esito:
 
 - la finestra GUI si apre
-- la versione mostrata e' coerente con `1.2.2`
+- la versione mostrata e' coerente con `1.2.3`
 - non compaiono traceback in console
 - il pulsante `Configura backend Whisper` e' visibile se il backend non e' pronto
 - i testi Windows sono coerenti:

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-yt-transcriber GUI v1.2.2
+yt-transcriber GUI v1.2.3
 Pipeline Trascrizione Audio/Video — Studio GD LEX
 """
 
@@ -31,7 +31,7 @@ from platform_paths import (
 )
 
 # ── Versione ───────────────────────────────────────────────────────────────────
-APP_VERSION = "1.2.2"
+APP_VERSION = "1.2.3"
 APP_AUTHOR  = "Studio GD LEX"
 APP_YEAR    = "2026"
 
