@@ -83,6 +83,10 @@ WHISPER_MODEL_BASE_DIRS = (
 
 HISTORY_FILE  = config_dir() / "history.json"
 
+
+def debug_log(message):
+    print(f"[yt-transcriber] {message}", file=sys.stderr, flush=True)
+
 AUDIO_FORMATS = (
     "Audio/Video (*.mp3 *.mp4 *.wav *.flac *.ogg *.opus *.m4a *.webm *.aac "
     "*.wma *.aiff *.mka *.mkv *.avi *.mov *.wmv *.flv *.ts *.mts *.m2ts *.vob *.3gp);;"
@@ -340,6 +344,24 @@ class PipelineWorker(QThread):
                     self._proc.terminate()
                 except Exception:
                     pass
+
+    def stop_for_exit(self, timeout_ms=5000):
+        self.cancel()
+        if not self.isRunning():
+            return True
+        if self.wait(timeout_ms):
+            return True
+        proc = self._proc
+        if proc:
+            try:
+                if proc.poll() is None:
+                    os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+            except Exception:
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+        return self.wait(2000)
 
     def _extract_transcript_payload(self, line):
         if not line or not line.startswith("TRANSCRIPT_LIVE:"):
@@ -811,6 +833,8 @@ class MainWindow(QMainWindow):
         self._setup_process = None
         self._setup_process_label = ""
         self._closing_during_setup = False
+        self._real_exit_requested = False
+        self._shutdown_cleanup_done = False
 
         self.setWindowTitle(f"yt-transcriber v{APP_VERSION} — Studio GD LEX")
         self.setMinimumSize(1000, 860)
@@ -1657,6 +1681,7 @@ class MainWindow(QMainWindow):
             if not message or "SHOW" in message:
                 self._show_from_single_instance_request()
             socket.disconnectFromServer()
+            socket.deleteLater()
 
     def _show_from_single_instance_request(self):
         if not self.isVisible():
@@ -1767,21 +1792,136 @@ class MainWindow(QMainWindow):
             pass
 
     def _quit_from_tray(self):
-        if self.worker and self.worker.isRunning():
-            QMessageBox.warning(
-                self,
-                "Pipeline in corso",
-                "Pipeline in corso. Annullare la pipeline prima di uscire."
-            )
-            self.showNormal()
-            self.raise_()
-            self.activateWindow()
+        self._request_app_exit("tray menu")
+
+    def _request_app_exit(self, source="user"):
+        if self._real_exit_requested:
             return
-        self.close()
+        self._real_exit_requested = True
+        debug_log(f"real exit requested from {source}")
+        self._perform_shutdown_cleanup()
+        app = QApplication.instance()
+        if app is not None:
+            QTimer.singleShot(0, app.quit)
+        else:
+            self.close()
+
+    def _perform_shutdown_cleanup(self):
+        if self._shutdown_cleanup_done:
+            return
+        self._shutdown_cleanup_done = True
+
+        debug_log("shutdown cleanup: stopping timers")
+        try:
+            self._pulse_timer.stop()
+        except Exception:
+            pass
+        try:
+            self._backend_idle_timer.stop()
+        except Exception:
+            pass
+        try:
+            self.log_idle_view.stop_animation()
+        except Exception:
+            pass
+
+        proc = self._setup_process
+        if proc is not None and proc.state() != QProcess.ProcessState.NotRunning:
+            setup_label = self._setup_process_label or "backend Whisper"
+            debug_log(f"shutdown cleanup: terminating setup process ({setup_label})")
+            self._closing_during_setup = True
+            try:
+                proc.terminate()
+                if not proc.waitForFinished(3000):
+                    debug_log("shutdown cleanup: killing setup process")
+                    proc.kill()
+                    proc.waitForFinished(1000)
+            except Exception as exc:
+                debug_log(f"shutdown cleanup: setup process termination failed: {exc}")
+        if self._setup_process is not None:
+            try:
+                self._setup_process.deleteLater()
+            except Exception:
+                pass
+            self._setup_process = None
+            self._setup_process_label = ""
+
+        worker = self.worker
+        if worker and worker.isRunning():
+            debug_log("shutdown cleanup: terminating pipeline worker")
+            try:
+                stopped = worker.stop_for_exit()
+                if not stopped:
+                    debug_log("shutdown cleanup: pipeline worker still running after force kill")
+            except Exception as exc:
+                debug_log(f"shutdown cleanup: pipeline worker termination failed: {exc}")
+        if self.worker is not None:
+            try:
+                self.worker.deleteLater()
+            except Exception:
+                pass
+            self.worker = None
+
+        server = getattr(self, "instance_server", None)
+        if server is not None:
+            debug_log("shutdown cleanup: closing single instance server")
+            try:
+                server.close()
+            except Exception:
+                pass
+            try:
+                QLocalServer.removeServer(SINGLE_INSTANCE_SERVER_NAME)
+            except Exception:
+                pass
+            try:
+                server.deleteLater()
+            except Exception:
+                pass
+            self.instance_server = None
+
+        tray_icon = getattr(self, "tray_icon", None)
+        if tray_icon is not None:
+            debug_log("shutdown cleanup: hiding tray icon")
+            try:
+                tray_icon.hide()
+                tray_icon.setContextMenu(None)
+            except Exception:
+                pass
+            try:
+                tray_icon.deleteLater()
+            except Exception:
+                pass
+            self.tray_icon = None
+        if getattr(self, "tray_menu", None) is not None:
+            try:
+                self.tray_menu.deleteLater()
+            except Exception:
+                pass
+            self.tray_menu = None
+
+        debug_log("shutdown cleanup: complete")
 
     def closeEvent(self, event):
+        if self._real_exit_requested:
+            self._perform_shutdown_cleanup()
+            event.accept()
+            return
+
+        if self.tray_icon is not None and QSystemTrayIcon.isSystemTrayAvailable():
+            debug_log("window close intercepted: hiding to tray")
+            event.ignore()
+            self.hide()
+            self._show_tray_message(
+                "yt-transcriber",
+                "L'app resta attiva nel tray. Usa Esci per terminarla.",
+                QSystemTrayIcon.MessageIcon.Information,
+            )
+            return
+
         proc = self._setup_process
         if proc is None or proc.state() == QProcess.ProcessState.NotRunning:
+            self._real_exit_requested = True
+            self._perform_shutdown_cleanup()
             event.accept()
             return
 
@@ -1804,6 +1944,8 @@ class MainWindow(QMainWindow):
                 proc.waitForFinished(1000)
         except Exception:
             pass
+        self._real_exit_requested = True
+        self._perform_shutdown_cleanup()
         event.accept()
 
     def _update_tray_state(self):

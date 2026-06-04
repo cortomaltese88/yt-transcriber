@@ -254,6 +254,12 @@ run_check "GUI fasi: preparazione audio presente" grep -Fq 'preparazione audio' 
 run_check "GUI Matrix: WHITE_RABBIT presente" grep -Fq 'WHITE_RABBIT' yt-transcriber_gui.py
 run_check "GUI Matrix: assets/matrix presente" grep -Fq 'assets" / "matrix"' yt-transcriber_gui.py
 run_check "GUI Tray: yt-transcriber-tray.svg presente" grep -Fq 'yt-transcriber-tray.svg' yt-transcriber_gui.py
+run_check "GUI Tray: Esci usa shutdown reale" grep -Fq '_request_app_exit("tray menu")' yt-transcriber_gui.py
+run_check "GUI closeEvent: chiusura finestra nasconde in tray" grep -Fq 'window close intercepted: hiding to tray' yt-transcriber_gui.py
+run_check "GUI shutdown: flag uscita reale presente" grep -Fq '_real_exit_requested' yt-transcriber_gui.py
+run_check "GUI shutdown: cleanup QLocalServer presente" grep -Fq 'QLocalServer.removeServer(SINGLE_INSTANCE_SERVER_NAME)' yt-transcriber_gui.py
+run_check "GUI shutdown: cleanup tray icon presente" grep -Fq 'tray_icon.setContextMenu(None)' yt-transcriber_gui.py
+run_check "GUI shutdown: QApplication.quit schedulato" grep -Fq 'app.quit' yt-transcriber_gui.py
 run_check "GUI single instance: QLocalServer presente" grep -Fq 'QLocalServer' yt-transcriber_gui.py
 run_check "GUI single instance: QLocalSocket presente" grep -Fq 'QLocalSocket' yt-transcriber_gui.py
 run_check "GUI single instance: SINGLE_INSTANCE_SERVER_NAME presente" grep -Fq 'SINGLE_INSTANCE_SERVER_NAME' yt-transcriber_gui.py
