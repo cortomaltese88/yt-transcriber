@@ -2,6 +2,15 @@
 
 Questo file riassume in modo sintetico le variazioni documentabili del progetto.
 
+## v1.2.4
+
+- Aggiunto rilevamento GPU/Vulkan per `whisper.cpp` app-managed.
+- Il setup `whisper.cpp` su Linux ora tenta la build Vulkan e fa fallback CPU.
+- Migliorato il messaggio sulle dipendenze Vulkan mancanti.
+- Corretto badge/backend label GPU/Vulkan nella GUI.
+- Corretto il comando `Esci` con tray attiva, che ora termina realmente l'app.
+- Aggiunti test per backend detection e shutdown GUI.
+
 ## v1.2.3
 
 - Filtrati i sottotitoli degeneri dopo silenzi lunghi, con rimozione prudente di run ripetute di token banali come `e`.
