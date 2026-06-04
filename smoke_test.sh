@@ -48,6 +48,7 @@ else
 fi
 
 run_check "Unit test: transcript sanitizer" python3 -m unittest tests.test_transcript_sanitizer
+run_check "Unit test: backend detection" python3 -m unittest tests.test_backend_detection
 
 run_check "Sintassi JavaScript: make_docx_styled.js" node --check make_docx_styled.js
 run_check "Help wrapper: ./yt-transcriber --help" ./yt-transcriber --help
@@ -168,7 +169,7 @@ run_check "GUI Whisper: scelta faster-whisper presente" grep -Fq 'Installa faste
 run_check "GUI Whisper: dialog backend presente" grep -Fq 'Configura backend Whisper' yt-transcriber_gui.py
 run_check "GUI Whisper: run button bloccato senza backend" grep -Fq 'self.run_btn.setEnabled(ok and backend_ready)' yt-transcriber_gui.py
 run_check "GUI Whisper: closeEvent protegge setup attivo" grep -Fq 'Setup backend in corso. Vuoi interromperlo e chiudere yt-transcriber?' yt-transcriber_gui.py
-run_check "Backend: whisper.cpp gestito dall'app presente" grep -Fq 'whisper.cpp (gestito dall'"'"'app)' transcriber_backend.py
+run_check "Backend: whisper.cpp gestito dall'app presente" grep -Fq 'gestito dall'"'"'app' transcriber_backend.py
 run_check "Backend: helper normalizzazione modello presente" grep -Fq 'def _normalize_whisper_model_input' transcriber_backend.py
 run_check "Backend: helper modello richiesto presente" grep -Fq 'def _requested_model_name' transcriber_backend.py
 run_check "Backend: helper modello disponibile presente" grep -Fq 'def _discover_available_whisper_model' transcriber_backend.py

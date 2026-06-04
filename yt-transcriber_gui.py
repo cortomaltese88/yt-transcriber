@@ -38,10 +38,15 @@ APP_YEAR    = "2026"
 # ── Backend detection ──────────────────────────────────────────────────────────
 sys.path.insert(0, str(Path(__file__).parent))
 try:
-    from transcriber_backend import detect_backend as _detect_backend
+    from transcriber_backend import (
+        backend_status_label as _backend_status_label,
+        detect_backend as _detect_backend,
+    )
     _BACKEND = _detect_backend()
 except Exception:
     _BACKEND = {"type": "none", "info": "non rilevato", "fast": False}
+    def _backend_status_label(backend):
+        return backend.get("info", "non rilevato")
 
 # ── Config ─────────────────────────────────────────────────────────────────────
 PIPELINE_DIR  = Path(__file__).parent
@@ -1271,9 +1276,7 @@ class MainWindow(QMainWindow):
                     "whisper.cpp non configurato: verra' usato faster-whisper"
                 )
             else:
-                binfo  = _BACKEND.get("info","?")
-                bspeed = "(GPU)" if _BACKEND.get("fast") else "(CPU)"
-                self.dep_badge.setText(f"<> {binfo} {bspeed}")
+                self.dep_badge.setText(f"<> {_backend_status_label(_BACKEND)}")
                 self.dep_badge.setStyleSheet(f"color:{WHITE};background:{GREEN_DARK};border:1px solid {GREEN_MID};border-radius:3px;padding:4px 12px;font-family:{FONT_MONO};")
                 tooltip = (
                     f"whisper-cli: {status['bin_path']}\n"
@@ -2203,8 +2206,7 @@ class MainWindow(QMainWindow):
             f"<p style='font-size:18px;font-weight:bold;color:#00FF41;'>yt-transcriber</p>"
             f"<p style='color:#90EE90;'>Pipeline Trascrizione Audio/Video</p>"
             f"<p style='margin-top:12px;'><b style='color:#FFD700;'>Versione:</b> {APP_VERSION}</p>"
-            f"<p><b style='color:#FFD700;'>Backend:</b> {_BACKEND.get('info','N/A')} "
-            f"{'(GPU)' if _BACKEND.get('fast') else '(CPU)'}</p>"
+            f"<p><b style='color:#FFD700;'>Backend:</b> {_backend_status_label(_BACKEND)}</p>"
             f"<p><b style='color:#FFD700;'>Autore:</b> {APP_AUTHOR}</p>"
             f"<p><b style='color:#FFD700;'>Anno:</b> {APP_YEAR}</p>"
             f"<hr style='border-color:#243A24;'/>"

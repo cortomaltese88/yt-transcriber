@@ -7,7 +7,7 @@ Ordine di preferenza:
   1. whisper.cpp Vulkan  (Linux/Windows, GPU AMD/Intel)
   2. whisper.cpp CUDA    (Linux/Windows, GPU Nvidia)
   3. whisper.cpp CPU     (Linux/Windows, CPU only)
-  4. whisper.cpp gestito dall'app (CPU)
+  4. whisper.cpp gestito dall'app (GPU/Vulkan o CPU)
   5. whisper.cpp manuale via env
   6. faster-whisper      (Python, CPU/CUDA, fallback universale)
   7. faster-whisper venv utente
@@ -296,6 +296,7 @@ WHISPER_MODEL_BASE_DIRS = (
     Path("/usr/share/yt-transcriber/models"),
     Path("/usr/local/share/whisper.cpp/models"),
 )
+VULKAN_LINK_MARKERS = ("libggml-vulkan", "libvulkan")
 
 
 def _discover_available_whisper_model() -> Path | None:
@@ -355,9 +356,69 @@ def _manual_whisper_backend() -> dict | None:
         "type":  "whisper_manual",
         "bin":   bin_path,
         "model": model_path,
-        "info":  "whisper.cpp (manuale)",
-        "fast":  False,
+        "info":  _whisper_backend_info("manuale", bin_path),
+        "fast":  _whisper_bin_uses_vulkan(bin_path),
     }
+
+
+def _build_tree_has_vulkan_library(bin_path: Path) -> bool:
+    """Rileva librerie Vulkan generate da whisper.cpp vicino al binario."""
+    try:
+        candidates = [bin_path.parent, *bin_path.parents]
+    except Exception:
+        return False
+
+    checked = set()
+    for root in candidates:
+        if root in checked:
+            continue
+        checked.add(root)
+        if root.name not in {"bin", "build", "whisper.cpp"} and "build" not in root.name:
+            continue
+        try:
+            for pattern in ("libggml-vulkan.so*", "libggml-vulkan.dylib", "ggml-vulkan.dll"):
+                if any(root.rglob(pattern)):
+                    return True
+        except Exception:
+            continue
+    return False
+
+
+def _ldd_mentions_vulkan(bin_path: Path) -> bool:
+    if not IS_LINUX:
+        return False
+    ldd = shutil.which("ldd")
+    if not ldd:
+        return False
+    try:
+        result = subprocess.run(
+            [ldd, str(bin_path)],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except Exception:
+        return False
+
+    output = f"{result.stdout}\n{result.stderr}".lower()
+    return any(marker in output for marker in VULKAN_LINK_MARKERS)
+
+
+def _whisper_bin_uses_vulkan(bin_path: Path) -> bool:
+    return _ldd_mentions_vulkan(bin_path) or _build_tree_has_vulkan_library(bin_path)
+
+
+def _whisper_backend_info(scope: str, bin_path: Path) -> str:
+    suffix = "GPU/Vulkan" if _whisper_bin_uses_vulkan(bin_path) else "CPU"
+    return f"whisper.cpp ({scope}) ({suffix})"
+
+
+def backend_status_label(backend: dict) -> str:
+    """Testo compatto per badge GUI/About."""
+    info = backend.get("info", "non rilevato")
+    if "(GPU" in info or "(CPU)" in info:
+        return info
+    return f"{info} {'(GPU)' if backend.get('fast') else '(CPU)'}"
 
 
 # ── Rilevamento backend ────────────────────────────────────────────────────────
@@ -404,12 +465,13 @@ def detect_backend() -> dict:
     # 4. whisper.cpp gestito dall'app
     if APP_WHISPER_CPP_BIN.exists():
         if _test_whisper_bin(APP_WHISPER_CPP_BIN):
+            app_uses_vulkan = _whisper_bin_uses_vulkan(APP_WHISPER_CPP_BIN)
             return {
-                "type":  "whisper_app_cpu",
+                "type":  "whisper_app_vulkan" if app_uses_vulkan else "whisper_app_cpu",
                 "bin":   APP_WHISPER_CPP_BIN,
                 "model": available_model,
-                "info":  "whisper.cpp (gestito dall'app)",
-                "fast":  False,
+                "info":  _whisper_backend_info("gestito dall'app", APP_WHISPER_CPP_BIN),
+                "fast":  app_uses_vulkan,
             }
 
     # 5. whisper.cpp manuale via env
@@ -495,7 +557,14 @@ def transcribe(
     btype = backend["type"]
     success = False
 
-    if btype in ("whisper_vulkan", "whisper_cuda", "whisper_cpu", "whisper_app_cpu", "whisper_manual"):
+    if btype in (
+        "whisper_vulkan",
+        "whisper_cuda",
+        "whisper_cpu",
+        "whisper_app_cpu",
+        "whisper_app_vulkan",
+        "whisper_manual",
+    ):
         if not backend.get("model"):
             if log_callback:
                 log_callback("✗  Backend whisper.cpp rilevato ma nessun modello ggml disponibile.", "#FF6B6B")
