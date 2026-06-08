@@ -185,5 +185,23 @@ class BackendDetectionTests(unittest.TestCase):
         self.assertEqual(detected["bin"], legacy_bin)
 
 
+    def test_to_win_path_calls_wslpath(self):
+        """_to_win_path chiama wslpath -w e restituisce il path Windows."""
+        with patch("transcriber_backend.subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            mock_run.return_value.stdout = "C:\\Users\\test\\model.bin\n"
+            result = backend._to_win_path("/mnt/c/Users/test/model.bin")
+        args = mock_run.call_args[0][0]
+        self.assertEqual(args[0], "wslpath")
+        self.assertEqual(args[1], "-w")
+        self.assertEqual(result, "C:\\Users\\test\\model.bin")
+
+    def test_to_win_path_falls_back_on_error(self):
+        """_to_win_path ritorna il path originale se wslpath non è disponibile."""
+        with patch("transcriber_backend.subprocess.run", side_effect=FileNotFoundError("wslpath")):
+            result = backend._to_win_path("/mnt/c/Users/test/audio.mp3")
+        self.assertEqual(result, "/mnt/c/Users/test/audio.mp3")
+
+
 if __name__ == "__main__":
     unittest.main()

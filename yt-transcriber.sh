@@ -49,6 +49,16 @@ _is_runnable() {
   return 1
 }
 
+# Converti path Linux in path Windows per backend .exe eseguiti da WSL
+_to_win_path() {
+  local path="$1"
+  if command -v wslpath &>/dev/null; then
+    wslpath -w "$path" 2>/dev/null || echo "$path"
+  else
+    echo "$path"
+  fi
+}
+
 resolve_model_bin() {
   local model_input="${1:-}"
   if [[ -z "$model_input" ]]; then
@@ -578,24 +588,33 @@ main() {
     local lang_arg=""
     [[ -n "$LANG" ]] && lang_arg="-l $LANG"
 
+    local model_bin_arg="$MODEL_BIN"
+    local loud_audio_arg="$loud_audio"
+    local srt_base_arg="$srt_base"
+    if [[ "$WHISPER_BIN_ACTIVE" == *.exe ]]; then
+      model_bin_arg="$(_to_win_path "$MODEL_BIN")"
+      loud_audio_arg="$(_to_win_path "$loud_audio")"
+      srt_base_arg="$(_to_win_path "$srt_base")"
+    fi
+
     : > "$whisper_log"
     (
       if command -v stdbuf &>/dev/null; then
         stdbuf -oL -eL \
           "$WHISPER_BIN_ACTIVE" \
-          -m "$MODEL_BIN" \
+          -m "$model_bin_arg" \
           $lang_arg \
-          -f "$loud_audio" \
+          -f "$loud_audio_arg" \
           -osrt \
-          -of "$srt_base" \
+          -of "$srt_base_arg" \
           --threads 8
       else
         "$WHISPER_BIN_ACTIVE" \
-          -m "$MODEL_BIN" \
+          -m "$model_bin_arg" \
           $lang_arg \
-          -f "$loud_audio" \
+          -f "$loud_audio_arg" \
           -osrt \
-          -of "$srt_base" \
+          -of "$srt_base_arg" \
           --threads 8
       fi
     ) 2>&1 | tee "$whisper_log" | while IFS= read -r line; do
@@ -765,19 +784,24 @@ PYEOF
 
   # .docx
   if [[ "$OUT_DOCX" == "1" ]]; then
-    local node_out node_exit=0
-    node_out=$(NODE_PATH="$PIPELINE_DIR/node_modules" \
-      node "$PIPELINE_DIR/make_docx_styled.js" \
-        "$WORK_DIR/transcript.txt" \
-        "$OUTPUT_DIR/" 2>&1) || node_exit=$?
-    [[ -n "$node_out" ]] && echo "$node_out" | grep -v "^$" || true
-    [[ $node_exit -eq 0 ]] || err "make_docx_styled.js fallito (exit $node_exit)"
-    local generated_t
-    generated_t=$(find "$OUTPUT_DIR" -name "${today}_*_trascrizione.docx" -newer "$loud_audio" | head -1)
-    if [[ -n "$generated_t" && "$generated_t" != "$out_transcript" ]]; then
-      mv "$generated_t" "$out_transcript" 2>/dev/null || true
+    if [[ ! -d "$PIPELINE_DIR/node_modules/docx" ]]; then
+      warn "Modulo Node 'docx' non trovato in node_modules — generazione DOCX saltata"
+      warn "Esegui: cd $PIPELINE_DIR && npm install"
+    else
+      local node_out node_exit=0
+      node_out=$(NODE_PATH="$PIPELINE_DIR/node_modules" \
+        node "$PIPELINE_DIR/make_docx_styled.js" \
+          "$WORK_DIR/transcript.txt" \
+          "$OUTPUT_DIR/" 2>&1) || node_exit=$?
+      [[ -n "$node_out" ]] && echo "$node_out" | grep -v "^$" || true
+      [[ $node_exit -eq 0 ]] || err "make_docx_styled.js fallito (exit $node_exit)"
+      local generated_t
+      generated_t=$(find "$OUTPUT_DIR" -name "${today}_*_trascrizione.docx" -newer "$loud_audio" | head -1)
+      if [[ -n "$generated_t" && "$generated_t" != "$out_transcript" ]]; then
+        mv "$generated_t" "$out_transcript" 2>/dev/null || true
+      fi
+      ok ".docx generato"
     fi
-    ok ".docx generato"
   fi
 
   # .txt

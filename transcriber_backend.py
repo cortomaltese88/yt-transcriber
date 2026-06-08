@@ -625,19 +625,38 @@ def transcribe(
     return success
 
 
+def _to_win_path(path: str) -> str:
+    """Convert a WSL Linux path to a Windows path using wslpath -w."""
+    try:
+        result = subprocess.run(
+            ["wslpath", "-w", str(path)],
+            capture_output=True, text=True, timeout=3
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception:
+        pass
+    return str(path)
+
+
 def _transcribe_whisper_cpp(audio_path, output_srt, lang, threads,
                              backend, progress_cb, log_cb):
     import time
     srt_base = output_srt.replace(".srt", "")
     lang_arg = ["-l", lang] if lang and lang != "auto" else []
 
+    is_exe = str(backend["bin"]).endswith(".exe")
+    model_arg = _to_win_path(str(backend["model"])) if is_exe else str(backend["model"])
+    audio_arg = _to_win_path(audio_path) if is_exe else audio_path
+    srt_base_arg = _to_win_path(srt_base) if is_exe else srt_base
+
     cmd = [
         str(backend["bin"]),
-        "-m", str(backend["model"]),
+        "-m", model_arg,
         *lang_arg,
-        "-f", audio_path,
+        "-f", audio_arg,
         "-osrt",
-        "-of", srt_base,
+        "-of", srt_base_arg,
         "--threads", str(threads),
     ]
 

@@ -301,6 +301,14 @@ run_check "Download video: --progress-template presente" grep -Fq -- '--progress
 run_check "Download video: prefisso YTDLP_PROGRESS presente" grep -Fq 'YTDLP_PROGRESS' yt-transcriber.sh
 run_check "Packaging assets Matrix presenti" grep -Fq 'cp -r "$SOURCE_DIR/assets" "$BUILD_DIR/usr/lib/${PACKAGE}/"' build_deb.sh
 
+run_check "WSL .exe: _to_win_path helper presente in transcriber_backend.py" grep -Fq 'def _to_win_path' transcriber_backend.py
+run_check "WSL .exe: wslpath usato in transcriber_backend.py" grep -Fq 'wslpath' transcriber_backend.py
+run_check "WSL .exe: _to_win_path helper presente in yt-transcriber.sh" grep -Fq '_to_win_path()' yt-transcriber.sh
+run_check "WSL .exe: wslpath usato in yt-transcriber.sh" grep -Fq 'wslpath' yt-transcriber.sh
+run_check "WSL .exe: conversione path attivata solo per .exe in yt-transcriber.sh" grep -Fq 'model_bin_arg="$(_to_win_path' yt-transcriber.sh
+run_check "DOCX guard: warning modulo docx mancante presente" grep -Fq "Modulo Node 'docx' non trovato" yt-transcriber.sh
+run_check "DOCX guard: suggerimento npm install presente" grep -Fq 'npm install' yt-transcriber.sh
+
 if [[ $fail -eq 0 ]]; then
   printf "\nTutti i controlli smoke sono OK.\n"
   exit 0
