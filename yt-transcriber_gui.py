@@ -182,7 +182,13 @@ def _expand_candidate_path(value):
 
 
 def _is_executable_file(path):
-    return bool(path and path.is_file() and os.access(path, os.X_OK))
+    if not path or not path.is_file():
+        return False
+    if os.access(path, os.X_OK):
+        return True
+    # WSL: i binari Windows (.exe) su /mnt/ potrebbero non avere il bit eseguibile
+    # ma sono invocabili via binfmt_misc; sufficiente che il file esista
+    return path.suffix.lower() == ".exe" and str(path).startswith("/mnt/")
 
 
 def _normalize_model_filename(model_name):
@@ -234,7 +240,7 @@ def resolve_whisper_bin():
             issues.append(f"{name} non punta a un file")
             candidate = None
             break
-        if not os.access(candidate, os.X_OK):
+        if not _is_executable_file(candidate):
             issues.append(f"{name} punta a un file non eseguibile")
             candidate = None
             break
@@ -1298,6 +1304,15 @@ class MainWindow(QMainWindow):
                 tooltip = (
                     f"backend: {status['backend_label']}\n"
                     "whisper.cpp non configurato: verra' usato faster-whisper"
+                )
+            elif _BACKEND.get("type") == "whisper_manual":
+                manual_bin = _BACKEND.get("bin", status["bin_path"])
+                self.dep_badge.setText(f"<> Esterno (env): {_backend_status_label(_BACKEND)}")
+                self.dep_badge.setStyleSheet(f"color:{WHITE};background:{GREEN_DARK};border:1px solid {GREEN_MID};border-radius:3px;padding:4px 12px;font-family:{FONT_MONO};")
+                tooltip = (
+                    f"Backend esterno (via env)\n"
+                    f"whisper-cli: {manual_bin}\n"
+                    f"modello: {status['model_path']}"
                 )
             else:
                 self.dep_badge.setText(f"<> {_backend_status_label(_BACKEND)}")

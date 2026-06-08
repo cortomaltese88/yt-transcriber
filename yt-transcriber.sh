@@ -39,6 +39,16 @@ LOUDNORM_LRA="${LOUDNORM_LRA:-11}"
 PYTHON_BACKEND_LABEL="${PYTHON_BACKEND_LABEL:-}"
 PYTHON_BACKEND_PYTHON="${PYTHON_BACKEND_PYTHON:-}"
 
+# Verifica se un file è eseguibile; gestisce .exe Windows su WSL (/mnt/)
+# dove binfmt_misc rende eseguibili i binari PE anche senza il bit +x
+_is_runnable() {
+  local f="$1"
+  [[ -f "$f" ]] || return 1
+  [[ -x "$f" ]] && return 0
+  [[ "$f" == *.exe && "$f" == /mnt/* ]] && return 0
+  return 1
+}
+
 resolve_model_bin() {
   local model_input="${1:-}"
   if [[ -z "$model_input" ]]; then
@@ -101,13 +111,13 @@ resolve_whisper_bin() {
   local candidate=""
   if [[ -n "${YT_TRANSCRIBER_WHISPER_BIN:-}" ]]; then
     candidate="${YT_TRANSCRIBER_WHISPER_BIN}"
-    [[ -x "$candidate" ]] || err "YT_TRANSCRIBER_WHISPER_BIN punta a un file ineseguibile o assente: $candidate"
+    _is_runnable "$candidate" || err "YT_TRANSCRIBER_WHISPER_BIN punta a un file ineseguibile o assente: $candidate"
     echo "$candidate"
     return
   fi
   if [[ -n "${WHISPER_BIN:-}" ]]; then
     candidate="${WHISPER_BIN}"
-    [[ -x "$candidate" ]] || err "WHISPER_BIN punta a un file ineseguibile o assente: $candidate"
+    _is_runnable "$candidate" || err "WHISPER_BIN punta a un file ineseguibile o assente: $candidate"
     echo "$candidate"
     return
   fi
@@ -122,7 +132,7 @@ resolve_whisper_bin() {
     "$YT_TRANSCRIBER_APP_WHISPER_DIR/build/bin/whisper-cli" \
     "/usr/local/bin/whisper-cli" \
     "/usr/bin/whisper-cli"; do
-    if [[ -x "$candidate" ]]; then
+    if _is_runnable "$candidate"; then
       echo "$candidate"
       return
     fi
@@ -556,7 +566,7 @@ main() {
   # Controlla se usare whisper.cpp o python backend
   local USE_WHISPER_CPP=0
   for bin_path in "$WHISPER_BIN"; do
-    if [[ -n "$bin_path" && -x "$bin_path" && -f "$WHISPER_MODEL" ]]; then
+    if [[ -n "$bin_path" ]] && _is_runnable "$bin_path" && [[ -f "$WHISPER_MODEL" ]]; then
       WHISPER_BIN_ACTIVE="$bin_path"
       USE_WHISPER_CPP=1
       break

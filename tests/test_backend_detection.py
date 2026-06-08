@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -89,6 +90,99 @@ class BackendDetectionTests(unittest.TestCase):
         self.assertEqual(detected["type"], "whisper_cpu")
         self.assertEqual(detected["bin"], cpu_bin)
         self.assertFalse(detected["fast"])
+
+
+    def test_env_bin_overrides_app_managed(self):
+        """YT_TRANSCRIBER_WHISPER_BIN ha priorità assoluta su backend app-managed."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            app_bin = self._executable(root / "build/bin/whisper-cli")
+            manual_bin = self._executable(root / "manual/whisper-cli")
+            model = root / "models/ggml-base.bin"
+            model.parent.mkdir(parents=True, exist_ok=True)
+            model.write_text("mock", encoding="utf-8")
+
+            env_patch = {
+                backend.YT_TRANSCRIBER_WHISPER_BIN_ENV: str(manual_bin),
+                backend.YT_TRANSCRIBER_WHISPER_MODEL_ENV: str(model),
+                "WHISPER_BIN": "",
+                "WHISPER_MODEL": "",
+            }
+            with patch.dict(os.environ, env_patch), \
+                 patch.object(backend, "WHISPER_BINS", {
+                     "vulkan": root / "missing-vulkan",
+                     "cuda": root / "missing-cuda",
+                     "cpu": root / "missing-cpu",
+                 }), \
+                 patch.object(backend, "APP_WHISPER_CPP_BIN", app_bin), \
+                 patch.object(backend, "_discover_available_whisper_model", return_value=model), \
+                 patch.object(backend, "_test_whisper_bin", return_value=True), \
+                 patch.object(backend, "_ldd_mentions_vulkan", return_value=False):
+                detected = backend.detect_backend()
+
+        self.assertEqual(detected["type"], "whisper_manual")
+        self.assertEqual(detected["bin"], manual_bin)
+        self.assertIn("manuale", detected["info"])
+
+    def test_env_bin_without_explicit_model_uses_discovered_model(self):
+        """YT_TRANSCRIBER_WHISPER_BIN senza model env usa _discover_available_whisper_model."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manual_bin = self._executable(root / "manual/whisper-cli")
+            discovered = root / "models/ggml-base.bin"
+            discovered.parent.mkdir(parents=True, exist_ok=True)
+            discovered.write_text("mock", encoding="utf-8")
+
+            env_patch = {
+                backend.YT_TRANSCRIBER_WHISPER_BIN_ENV: str(manual_bin),
+                backend.YT_TRANSCRIBER_WHISPER_MODEL_ENV: "",
+                "WHISPER_BIN": "",
+                "WHISPER_MODEL": "",
+            }
+            with patch.dict(os.environ, env_patch), \
+                 patch.object(backend, "WHISPER_BINS", {
+                     "vulkan": root / "missing-vulkan",
+                     "cuda": root / "missing-cuda",
+                     "cpu": root / "missing-cpu",
+                 }), \
+                 patch.object(backend, "APP_WHISPER_CPP_BIN", root / "missing-app"), \
+                 patch.object(backend, "_discover_available_whisper_model", return_value=discovered), \
+                 patch.object(backend, "_test_whisper_bin", return_value=True), \
+                 patch.object(backend, "_ldd_mentions_vulkan", return_value=False):
+                detected = backend.detect_backend()
+
+        self.assertEqual(detected["type"], "whisper_manual")
+        self.assertEqual(detected["model"], discovered)
+
+    def test_legacy_whisper_bin_env_used_as_manual_backend(self):
+        """WHISPER_BIN (legacy) viene usato come backend manuale se YT_TRANSCRIBER_WHISPER_BIN non è impostato."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            legacy_bin = self._executable(root / "legacy/whisper-cli")
+            model = root / "models/ggml-base.bin"
+            model.parent.mkdir(parents=True, exist_ok=True)
+            model.write_text("mock", encoding="utf-8")
+
+            env_patch = {
+                backend.YT_TRANSCRIBER_WHISPER_BIN_ENV: "",
+                "WHISPER_BIN": str(legacy_bin),
+                backend.YT_TRANSCRIBER_WHISPER_MODEL_ENV: str(model),
+                "WHISPER_MODEL": "",
+            }
+            with patch.dict(os.environ, env_patch), \
+                 patch.object(backend, "WHISPER_BINS", {
+                     "vulkan": root / "missing-vulkan",
+                     "cuda": root / "missing-cuda",
+                     "cpu": root / "missing-cpu",
+                 }), \
+                 patch.object(backend, "APP_WHISPER_CPP_BIN", root / "missing-app"), \
+                 patch.object(backend, "_discover_available_whisper_model", return_value=model), \
+                 patch.object(backend, "_test_whisper_bin", return_value=True), \
+                 patch.object(backend, "_ldd_mentions_vulkan", return_value=False):
+                detected = backend.detect_backend()
+
+        self.assertEqual(detected["type"], "whisper_manual")
+        self.assertEqual(detected["bin"], legacy_bin)
 
 
 if __name__ == "__main__":

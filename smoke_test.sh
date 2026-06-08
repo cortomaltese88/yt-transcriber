@@ -170,6 +170,30 @@ run_check "GUI Whisper: dialog backend presente" grep -Fq 'Configura backend Whi
 run_check "GUI Whisper: run button bloccato senza backend" grep -Fq 'self.run_btn.setEnabled(ok and backend_ready)' yt-transcriber_gui.py
 run_check "GUI Whisper: closeEvent protegge setup attivo" grep -Fq 'Setup backend in corso. Vuoi interromperlo e chiudere yt-transcriber?' yt-transcriber_gui.py
 run_check "Backend: whisper.cpp gestito dall'app presente" grep -Fq 'gestito dall'"'"'app' transcriber_backend.py
+run_check "Backend: backend manuale via env dichiarato nel docstring" grep -Fq 'priorità assoluta' transcriber_backend.py
+run_check "Backend: _manual_whisper_backend controlla anche WHISPER_BIN legacy" grep -Fq '"WHISPER_BIN"' transcriber_backend.py
+run_check "Backend: manuale senza model usa _discover_available_whisper_model" python3 - <<'PY'
+import sys
+src = open("transcriber_backend.py").read()
+fn_start = src.find("def _manual_whisper_backend(")
+fn_end = src.find("\ndef ", fn_start + 1)
+fn_body = src[fn_start:fn_end]
+sys.exit(0 if "_discover_available_whisper_model" in fn_body else 1)
+PY
+run_check "Backend: env manuale ha priorità su app-managed in detect_backend" python3 - <<'PY'
+import sys
+src = open("transcriber_backend.py").read()
+detect_start = src.find("def detect_backend(")
+detect_end = src.find("\ndef ", detect_start + 1)
+detect_body = src[detect_start:detect_end]
+manual_pos = detect_body.find("_manual_whisper_backend()")
+app_pos = detect_body.find("APP_WHISPER_CPP_BIN")
+sys.exit(0 if 0 <= manual_pos < app_pos else 1)
+PY
+run_check "Pipeline Whisper: _is_runnable presente" grep -Fq '_is_runnable()' yt-transcriber.sh
+run_check "Pipeline Whisper: _is_runnable gestisce WSL .exe" grep -Fq '.exe && "$f" == /mnt/*' yt-transcriber.sh
+run_check "GUI: backend esterno via env nel badge" grep -Fq 'Esterno (env):' yt-transcriber_gui.py
+run_check "GUI: _is_executable_file gestisce WSL .exe su /mnt/" grep -Fq '".exe" and str(path).startswith("/mnt/")' yt-transcriber_gui.py
 run_check "Backend: helper normalizzazione modello presente" grep -Fq 'def _normalize_whisper_model_input' transcriber_backend.py
 run_check "Backend: helper modello richiesto presente" grep -Fq 'def _requested_model_name' transcriber_backend.py
 run_check "Backend: helper modello disponibile presente" grep -Fq 'def _discover_available_whisper_model' transcriber_backend.py

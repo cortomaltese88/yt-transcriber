@@ -4,11 +4,12 @@ transcriber_backend.py — Rilevamento e gestione backend Whisper
 Studio GD LEX — yt-transcriber v1.0.5
 
 Ordine di preferenza:
-  1. whisper.cpp Vulkan  (Linux/Windows, GPU AMD/Intel)
-  2. whisper.cpp CUDA    (Linux/Windows, GPU Nvidia)
-  3. whisper.cpp CPU     (Linux/Windows, CPU only)
-  4. whisper.cpp gestito dall'app (GPU/Vulkan o CPU)
-  5. whisper.cpp manuale via env
+  1. whisper.cpp manuale via env (YT_TRANSCRIBER_WHISPER_BIN / WHISPER_BIN)
+     — priorità assoluta; supporta binari Windows .exe via WSL (/mnt/c/...)
+  2. whisper.cpp Vulkan  (Linux/Windows, GPU AMD/Intel)
+  3. whisper.cpp CUDA    (Linux/Windows, GPU Nvidia)
+  4. whisper.cpp CPU     (Linux/Windows, CPU only)
+  5. whisper.cpp gestito dall'app (GPU/Vulkan o CPU)
   6. faster-whisper      (Python, CPU/CUDA, fallback universale)
   7. faster-whisper venv utente
   8. openai-whisper      (Python, CPU, ultimo fallback)
@@ -340,17 +341,42 @@ def _venv_has_module(python_path: Path, module_name: str) -> bool:
 
 
 def _manual_whisper_backend() -> dict | None:
-    bin_value = os.environ.get(YT_TRANSCRIBER_WHISPER_BIN_ENV, "").strip()
-    model_value = os.environ.get(YT_TRANSCRIBER_WHISPER_MODEL_ENV, "").strip()
-    if not bin_value or not model_value:
+    """
+    Risolve backend manuale via env (priorità assoluta).
+
+    Controlla YT_TRANSCRIBER_WHISPER_BIN e, come fallback legacy, WHISPER_BIN.
+    Non richiede YT_TRANSCRIBER_WHISPER_MODEL: se non impostato usa
+    _discover_available_whisper_model() per trovare un modello.
+    Supporta binari Windows .exe via WSL (/mnt/c/...): is_file() e
+    _test_whisper_bin() funzionano su percorsi DrvFs/binfmt_misc.
+    """
+    bin_value = (
+        os.environ.get(YT_TRANSCRIBER_WHISPER_BIN_ENV, "").strip()
+        or os.environ.get("WHISPER_BIN", "").strip()
+    )
+    if not bin_value:
         return None
 
     bin_path = Path(bin_value).expanduser()
-    model_path = Path(model_value).expanduser()
-    if not bin_path.is_file() or not model_path.is_file():
+    # is_file() funziona per path WSL /mnt/c/... verso .exe Windows (DrvFs)
+    if not bin_path.is_file():
         return None
-    if model_path.suffix.lower() != ".bin":
+    # Verifica che il binario risponda; funziona anche per .exe via binfmt_misc
+    if not _test_whisper_bin(bin_path):
         return None
+
+    # Modello: env esplicito → fallback discovery automatica
+    model_path: Path | None = None
+    model_value = (
+        os.environ.get(YT_TRANSCRIBER_WHISPER_MODEL_ENV, "").strip()
+        or os.environ.get("WHISPER_MODEL", "").strip()
+    )
+    if model_value:
+        mp = Path(model_value).expanduser()
+        if mp.is_file() and mp.suffix.lower() == ".bin":
+            model_path = mp
+    if model_path is None:
+        model_path = _discover_available_whisper_model()
 
     return {
         "type":  "whisper_manual",
@@ -427,9 +453,15 @@ def detect_backend() -> dict:
     Rileva il backend migliore disponibile.
     Ritorna: {'type': str, 'bin': Path|None, 'model': Path|None, 'info': str}
     """
+    # 1. whisper.cpp manuale via env (priorità assoluta)
+    #    Supporta .exe Windows da WSL via YT_TRANSCRIBER_WHISPER_BIN / WHISPER_BIN
+    manual_backend = _manual_whisper_backend()
+    if manual_backend is not None:
+        return manual_backend
+
     available_model = _discover_available_whisper_model()
 
-    # 1. whisper.cpp Vulkan
+    # 2. whisper.cpp Vulkan
     if WHISPER_BINS["vulkan"].exists():
         if _test_whisper_bin(WHISPER_BINS["vulkan"]):
             return {
@@ -440,7 +472,7 @@ def detect_backend() -> dict:
                 "fast":  True,
             }
 
-    # 2. whisper.cpp CUDA
+    # 3. whisper.cpp CUDA
     if WHISPER_BINS["cuda"].exists():
         if _test_whisper_bin(WHISPER_BINS["cuda"]):
             return {
@@ -451,7 +483,7 @@ def detect_backend() -> dict:
                 "fast":  True,
             }
 
-    # 3. whisper.cpp CPU
+    # 4. whisper.cpp CPU
     if WHISPER_BINS["cpu"].exists():
         if _test_whisper_bin(WHISPER_BINS["cpu"]):
             return {
@@ -462,7 +494,7 @@ def detect_backend() -> dict:
                 "fast":  False,
             }
 
-    # 4. whisper.cpp gestito dall'app
+    # 5. whisper.cpp gestito dall'app
     if APP_WHISPER_CPP_BIN.exists():
         if _test_whisper_bin(APP_WHISPER_CPP_BIN):
             app_uses_vulkan = _whisper_bin_uses_vulkan(APP_WHISPER_CPP_BIN)
@@ -473,11 +505,6 @@ def detect_backend() -> dict:
                 "info":  _whisper_backend_info("gestito dall'app", APP_WHISPER_CPP_BIN),
                 "fast":  app_uses_vulkan,
             }
-
-    # 5. whisper.cpp manuale via env
-    manual_backend = _manual_whisper_backend()
-    if manual_backend is not None:
-        return manual_backend
 
     # 6. faster-whisper
     try:
