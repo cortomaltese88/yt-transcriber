@@ -2,6 +2,17 @@
 
 Questo file riassume in modo sintetico le variazioni documentabili del progetto.
 
+## v1.2.5
+
+- Corretto il download da YouTube con le versioni recenti di `yt-dlp`: nuovo formato
+  audio HLS primario con fallback automatico su `bestaudio/best` in caso di errore.
+- Aggiunta protezione `--no-playlist` per evitare il download involontario di intere
+  playlist quando l'URL contiene `?list=...`.
+- Gestione più robusta del download (retry su rete/frammenti, log dedicato per
+  tentativo) e compatibilità con i runtime JS/EJS richiesti dagli extractor recenti.
+- Documentazione aggiornata su `yt-dlp`, PEP 668 e installazione/aggiornamento
+  tramite `pipx`.
+
 ## v1.2.4
 
 - Aggiunto rilevamento GPU/Vulkan per `whisper.cpp` app-managed.

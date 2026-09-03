@@ -258,12 +258,78 @@ VARIABILI D'AMBIENTE:
   LOUDNORM_I      Parametro avanzato loudnorm (default: -20)
   LOUDNORM_TP     Parametro avanzato loudnorm (default: -2)
   LOUDNORM_LRA    Parametro avanzato loudnorm (default: 11)
+  YT_TRANSCRIBER_YTDLP_FORMAT
+                  Formato yt-dlp primario (default: audio HLS)
+  YT_TRANSCRIBER_YTDLP_FALLBACK_FORMAT
+                  Formato yt-dlp fallback (default: bestaudio/best)
   WHISPER_LANG    Lingua Whisper (default: it)
   YT_TRANSCRIBER_WHISPER_BIN   Override percorso whisper-cli
   YT_TRANSCRIBER_WHISPER_MODEL Override modello/path .bin
   WHISPER_BIN     Override legacy percorso whisper-cli
   WHISPER_MODEL   Modello (tiny/base/small/medium/large) o path .bin (default: base)
 EOF
+}
+
+run_ytdlp_audio_attempt() {
+  local attempt_label="$1"
+  local format_selector="$2"
+  local safe_label="${attempt_label//[^a-zA-Z0-9_]/_}"
+  local log_file="$WORK_DIR/ytdlp_${safe_label}.log"
+  local ytdlp_status=0
+
+  : > "$log_file"
+  find "$WORK_DIR" -maxdepth 1 -type f -name 'audio_raw.*' -delete
+
+  step "Download audio (${attempt_label})"
+  set +e
+  yt-dlp \
+    --no-playlist \
+    --abort-on-error \
+    --no-js-runtimes \
+    --js-runtimes node \
+    --remote-components ejs:github \
+    --socket-timeout 30 \
+    --retries 5 \
+    --fragment-retries 5 \
+    --extractor-retries 3 \
+    --retry-sleep "http:linear=1::2" \
+    --retry-sleep "fragment:linear=1::2" \
+    -f "$format_selector" \
+    -x --audio-format mp3 --audio-quality 0 \
+    --newline \
+    --progress-template "download:YTDLP_PROGRESS:%(progress._percent_str)s:%(progress._downloaded_bytes_str)s:%(progress._total_bytes_str)s:%(progress._speed_str)s:%(progress._eta_str)s" \
+    --output "$WORK_DIR/audio_raw.%(ext)s" \
+    --print-to-file title "$WORK_DIR/video_title.txt" \
+    "$url" 2>&1 | while IFS= read -r line; do
+      printf '%s\n' "$line" >> "$log_file"
+      case "$line" in
+        YTDLP_PROGRESS:*|\[youtube\]*|\[download\]*|\[hlsnative\]*|\[ExtractAudio\]*|ERROR:*|WARNING:*|\[error\]*|\[warning\]*|*" ERROR:"*|*" WARNING:"*)
+          printf '%s\n' "$line"
+          ;;
+      esac
+    done
+  ytdlp_status=${PIPESTATUS[0]}
+  set -e
+
+  return "$ytdlp_status"
+}
+
+download_online_audio() {
+  local primary_format="${YT_TRANSCRIBER_YTDLP_FORMAT:-bestaudio[protocol=m3u8_native]/bestaudio[protocol=m3u8]/bestaudio[protocol*=m3u8]}"
+  local fallback_format="${YT_TRANSCRIBER_YTDLP_FALLBACK_FORMAT:-bestaudio/best}"
+
+  : > "$WORK_DIR/video_title.txt"
+
+  if run_ytdlp_audio_attempt "HLS audio" "$primary_format"; then
+    return 0
+  fi
+
+  warn "Download HLS non riuscito — provo il formato audio generico"
+  if run_ytdlp_audio_attempt "audio generico" "$fallback_format"; then
+    return 0
+  fi
+
+  return 1
 }
 
 # ── Barra progresso whisper ───────────────────────────────────────────────────
@@ -465,23 +531,7 @@ main() {
     ok "File: $(du -sh "$raw_audio" | cut -f1)"
   else
     step "Download audio da sorgente online"
-    local ytdlp_status=0
-    set +e
-    yt-dlp -x --audio-format mp3 --audio-quality 0 \
-      --newline \
-      --progress-template "download:YTDLP_PROGRESS:%(progress._percent_str)s:%(progress._downloaded_bytes_str)s:%(progress._total_bytes_str)s:%(progress._speed_str)s:%(progress._eta_str)s" \
-      --output "$WORK_DIR/audio_raw.%(ext)s" \
-      --print-to-file title "$WORK_DIR/video_title.txt" \
-      "$url" 2>&1 | while IFS= read -r line; do
-        case "$line" in
-          YTDLP_PROGRESS:*|\[download\]*|\[ExtractAudio\]*|ERROR:*|WARNING:*|\[error\]*|\[warning\]*|*" ERROR:"*|*" WARNING:"*)
-            printf '%s\n' "$line"
-            ;;
-        esac
-      done
-    ytdlp_status=${PIPESTATUS[0]}
-    set -e
-    [[ $ytdlp_status -eq 0 ]] || err "Download sorgente online fallito (yt-dlp exit $ytdlp_status)"
+    download_online_audio || err "Download sorgente online fallito (yt-dlp). Log: $WORK_DIR/ytdlp_*.log"
 
     # Recupera titolo dal video se non fornito
     if [[ -z "$title" && -f "$WORK_DIR/video_title.txt" ]]; then

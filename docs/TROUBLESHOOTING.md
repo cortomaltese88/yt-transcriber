@@ -32,14 +32,60 @@ Sintomi comuni:
 - download da URL non disponibile
 - errore comando non trovato
 - extractor non aggiornato o sorgente non supportata
+- `HTTP Error 403: Forbidden` durante il download YouTube, spesso insieme al
+  warning `Your yt-dlp version (...) is older than 90 days!`
 
 Verifiche utili:
 
 ```bash
 yt-dlp --version
+which -a yt-dlp   # verifica quale eseguibile viene usato per primo nel PATH
 ```
 
-Se la sorgente online fallisce, provare a scaricare il file esternamente e usare la modalita' file locale.
+### Il pacchetto `yt-dlp` di apt e' quasi sempre troppo vecchio
+
+Su Ubuntu 24.04 il pacchetto apt `yt-dlp` (`/usr/bin/yt-dlp`) resta fermo a
+versioni molto datate (es. `2024.04.09-1`) perche' non viene aggiornato al
+ritmo delle release upstream. YouTube modifica spesso il proprio player e gli
+extractor di yt-dlp devono essere aggiornati di conseguenza: un `yt-dlp`
+vecchio di mesi produce quasi sempre `HTTP Error 403: Forbidden` su YouTube,
+anche se il resto della pipeline funziona correttamente.
+
+**Non e' un bug di `yt-transcriber`**: e' una conseguenza dell'obsolescenza
+dell'extractor. La correzione e' aggiornare `yt-dlp`, non aggiungere opzioni
+alla riga di comando.
+
+### Aggiornamento corretto su Ubuntu 24.04 (PEP 668)
+
+Da Ubuntu 23.04 in poi, `pip install --user -U yt-dlp` fallisce con
+`error: externally-managed-environment` (PEP 668). **Non usare
+`--break-system-packages`**: rischia di corrompere i pacchetti Python di
+sistema. Il metodo consigliato e supportato e' `pipx`, gia' presente su
+Ubuntu 24.04 (`apt install pipx` se mancante):
+
+```bash
+pipx install yt-dlp        # prima installazione isolata in ~/.local/share/pipx
+pipx upgrade yt-dlp        # aggiornamenti successivi
+```
+
+`pipx` crea un venv dedicato e pubblica lo shim eseguibile in
+`~/.local/bin/yt-dlp`. Se `~/.local/bin` precede `/usr/bin` nel `PATH` (caso
+comune), questo yt-dlp aggiornato ha priorita' sul pacchetto apt datato senza
+bisogno di `sudo` ne' di rimuovere il pacchetto di sistema.
+
+Se `~/.local/bin/yt-dlp` esiste gia' come installazione `pip --user` (non
+`pipx`), `pipx install yt-dlp` puo' segnalare un conflitto sul file: in tal
+caso usare `pipx install --force yt-dlp` per sostituirlo con lo shim gestito
+da pipx.
+
+Verifica dopo l'aggiornamento:
+
+```bash
+yt-dlp --version   # deve corrispondere a pipx list
+```
+
+Se la sorgente online continua a fallire dopo l'aggiornamento, provare a
+scaricare il file esternamente e usare la modalita' file locale.
 
 ## `ffmpeg` mancante
 
@@ -95,7 +141,7 @@ Il progetto dipende da `yt-dlp` e dagli extractor disponibili. Un fallimento puo
 
 Approccio prudente:
 
-- aggiornare o verificare `yt-dlp`
+- aggiornare `yt-dlp` (vedi la sezione precedente: la causa piu' frequente e' proprio una versione datata) e verificarne la versione
 - riprovare piu' tardi
 - usare un file locale se il contenuto e' gia' stato scaricato con altri mezzi leciti
 

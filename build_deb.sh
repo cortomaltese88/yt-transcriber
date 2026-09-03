@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-VERSION="1.2.4"
+VERSION="1.2.5"
 if [[ -n "${APP_VERSION:-}" ]]; then
     VERSION="${APP_VERSION#v}"
 fi
@@ -141,6 +141,12 @@ if [[ -f "$SOURCE_DIR/THIRD_PARTY_LICENSES.md" ]]; then
         "$BUILD_DIR/usr/share/doc/${PACKAGE}/THIRD_PARTY_LICENSES.md"
 fi
 
+# Troubleshooting
+if [[ -f "$SOURCE_DIR/docs/TROUBLESHOOTING.md" ]]; then
+    cp "$SOURCE_DIR/docs/TROUBLESHOOTING.md" \
+        "$BUILD_DIR/usr/share/doc/${PACKAGE}/TROUBLESHOOTING.md"
+fi
+
 # ── DEBIAN/control ────────────────────────────────────────────────────────────
 # Calcola dimensione installata
 INSTALLED_SIZE=$(du -sk "$BUILD_DIR/usr" | cut -f1)
@@ -178,6 +184,15 @@ if command -v update-desktop-database &>/dev/null; then
 fi
 
 echo "yt-transcriber installato. Avvia con: yt-transcriber"
+echo ""
+echo "Nota su yt-dlp (sorgenti online / YouTube):"
+echo "  Il pacchetto apt 'yt-dlp' e' spesso datato di mesi rispetto a yt-dlp"
+echo "  upstream e YouTube cambia frequentemente: una versione vecchia causa"
+echo "  tipicamente 'HTTP Error 403: Forbidden' durante il download."
+echo "  Se il download da YouTube fallisce, aggiorna yt-dlp per l'utente"
+echo "  corrente (nessun sudo richiesto):"
+echo "    pipx install yt-dlp   # oppure: pipx upgrade yt-dlp"
+echo "  Dettagli: usr/share/doc/yt-transcriber/TROUBLESHOOTING.md"
 POSTINST
 chmod 755 "$BUILD_DIR/DEBIAN/postinst"
 
